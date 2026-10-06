@@ -1,0 +1,22 @@
+# Arquivos de ambiente virtual e compilação Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Pastas geradas pelo PyInstaller
+build/
+dist/
+*.spec
+
+# Pastas de dados de testes e relatórios locais
+teste/
+exemplos/
+*-info.txt
+*.xlsx
+*.pdf
+
+# Executáveis antigos ou temporários
+extrac.exe
+pyinstxtractor.py
+pyinstxtractor-master/
