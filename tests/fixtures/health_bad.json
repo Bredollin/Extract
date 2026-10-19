@@ -1,0 +1,268 @@
+{
+  "storage.health": [
+    {
+      "Model": "ST1000LM035-1RK172",
+      "MediaType": "HDD",
+      "HealthStatus": "Warning",
+      "Temperature": 52,
+      "Wear": 0,
+      "ReadErrorsUncorrected": 118,
+      "WriteErrorsUncorrected": 0,
+      "ReadErrorsTotal": 4211,
+      "WriteErrorsTotal": 0,
+      "PowerOnHours": 21873
+    }
+  ],
+  "storage.free_space": [
+    {
+      "DeviceID": "C:",
+      "Size": 255479722496,
+      "FreeSpace": 15032385536
+    }
+  ],
+  "storage.activity": [
+    {
+      "BusyPercent": 98.66666666666667,
+      "AvgQueueLength": 4.8132,
+      "AvgResponseMs": 312.55
+    }
+  ],
+  "memory.pressure": [
+    {
+      "TotalVisibleMemoryKB": 4078920,
+      "AvailableMBytes": 190,
+      "PercentCommittedBytesInUse": 96,
+      "HardFaultsPerSec": 241.66666666666666,
+      "PageFileAllocatedMB": 2816,
+      "PageFileCurrentMB": 2410
+    }
+  ],
+  "cpu.load": [
+    {
+      "LoadPercent": 97.0,
+      "PerformancePercent": 38.0,
+      "MaxClockMHz": 2400,
+      "LogicalProcessors": 4,
+      "Processes": [
+        {
+          "Name": "MsMpEng",
+          "PercentProcessorTime": 120,
+          "WorkingSetPrivate": 183500800
+        },
+        {
+          "Name": "AvastSvc",
+          "PercentProcessorTime": 96,
+          "WorkingSetPrivate": 152043520
+        },
+        {
+          "Name": "chrome",
+          "PercentProcessorTime": 40,
+          "WorkingSetPrivate": 268435456
+        },
+        {
+          "Name": "chrome#1",
+          "PercentProcessorTime": 30,
+          "WorkingSetPrivate": 134217728
+        },
+        {
+          "Name": "SearchIndexer",
+          "PercentProcessorTime": 20,
+          "WorkingSetPrivate": 41943040
+        },
+        {
+          "Name": "svchost#3",
+          "PercentProcessorTime": 8,
+          "WorkingSetPrivate": 20971520
+        }
+      ]
+    }
+  ],
+  "system.startup": [
+    {
+      "Name": "Avast",
+      "Command": "\"C:\\Program Files\\Avast\\Avast.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "AvastUI",
+      "Command": "\"C:\\Program Files\\AvastUI\\AvastUI.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "AdobeAAMUpdater",
+      "Command": "\"C:\\Program Files\\AdobeAAMUpdater\\AdobeAAMUpdater.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "CCleaner",
+      "Command": "\"C:\\Program Files\\CCleaner\\CCleaner.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "Spotify",
+      "Command": "\"C:\\Program Files\\Spotify\\Spotify.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "Steam",
+      "Command": "\"C:\\Program Files\\Steam\\Steam.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "Discord",
+      "Command": "\"C:\\Program Files\\Discord\\Discord.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "EpicGamesLauncher",
+      "Command": "\"C:\\Program Files\\EpicGamesLauncher\\EpicGamesLauncher.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "Skype",
+      "Command": "\"C:\\Program Files\\Skype\\Skype.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "Dropbox",
+      "Command": "\"C:\\Program Files\\Dropbox\\Dropbox.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "GoogleDriveFS",
+      "Command": "\"C:\\Program Files\\GoogleDriveFS\\GoogleDriveFS.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "iTunesHelper",
+      "Command": "\"C:\\Program Files\\iTunesHelper\\iTunesHelper.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "HPMessageService",
+      "Command": "\"C:\\Program Files\\HPMessageService\\HPMessageService.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "LenovoVantage",
+      "Command": "\"C:\\Program Files\\LenovoVantage\\LenovoVantage.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "Zoom",
+      "Command": "\"C:\\Program Files\\Zoom\\Zoom.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "WhatsApp",
+      "Command": "\"C:\\Program Files\\WhatsApp\\WhatsApp.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "uTorrent",
+      "Command": "\"C:\\Program Files\\uTorrent\\uTorrent.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "BaiduPCFaster",
+      "Command": "\"C:\\Program Files\\BaiduPCFaster\\BaiduPCFaster.exe\" /minimized",
+      "Location": "HKLM\\SOFTWARE\\WOW6432Node\\Microsoft\\Windows\\CurrentVersion\\Run"
+    }
+  ],
+  "system.uptime": [
+    {
+      "UptimeHours": 900.25
+    }
+  ],
+  "system.events": [
+    {
+      "WindowDays": 7,
+      "DiskErrors": 14,
+      "WheaErrors": 0,
+      "UnexpectedShutdowns": 3,
+      "BugChecks": 1,
+      "AppCrashes": 35
+    }
+  ],
+  "system.power_plan": [
+    {
+      "SchemeGuid": "a1841308-3541-4fab-bc81-f71556f20b4a",
+      "PlanName": "Economia de energia",
+      "BatteryStatus": 1
+    }
+  ],
+  "system.antivirus": [
+    {
+      "Products": [
+        {
+          "Name": "Avast Antivirus",
+          "State": 266240
+        },
+        {
+          "Name": "Windows Defender",
+          "State": 397568
+        }
+      ],
+      "DefenderPresent": true,
+      "DefenderEnabled": true,
+      "DefenderRealTime": true,
+      "ScanInProgress": true
+    }
+  ],
+  "system.devices": [
+    {
+      "Name": "Controlador Ethernet",
+      "DeviceID": "PCI\\VEN_10EC&DEV_8168&SUBSYS_00000000&REV_15\\4&1A2B3C4D&0&00E4",
+      "ConfigManagerErrorCode": 28
+    },
+    {
+      "Name": null,
+      "DeviceID": "ACPI\\VPC2004\\0",
+      "ConfigManagerErrorCode": 28
+    },
+    {
+      "Name": "Intel(R) Wireless Bluetooth(R)",
+      "DeviceID": "USB\\VID_8087&PID_0A2B\\5&2C3D4E5F&0&7",
+      "ConfigManagerErrorCode": 22
+    }
+  ],
+  "system.pending_reboot": [
+    {
+      "Reasons": [
+        "windows_update",
+        "file_rename"
+      ]
+    }
+  ],
+  "network.connectivity": [
+    {
+      "HasRoute": true,
+      "Gateway": {
+        "Sent": 10,
+        "Lost": 2,
+        "AvgMs": 45.375
+      },
+      "Internet": [
+        {
+          "Sent": 5,
+          "Lost": 5,
+          "AvgMs": null
+        },
+        {
+          "Sent": 5,
+          "Lost": 1,
+          "AvgMs": 262.5
+        }
+      ],
+      "DnsMs": 640.2
+    }
+  ],
+  "network.wifi": [
+    {
+      "OnWifi": true,
+      "SsidPresent": true,
+      "Signal": 28,
+      "ReceiveMbps": 5.5
+    }
+  ]
+}

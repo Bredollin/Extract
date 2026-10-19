@@ -1,0 +1,182 @@
+{
+  "storage.health": [
+    {
+      "Model": "Samsung SSD 980 500GB",
+      "MediaType": "SSD",
+      "HealthStatus": "Healthy",
+      "Temperature": 38,
+      "Wear": 3,
+      "ReadErrorsUncorrected": 0,
+      "WriteErrorsUncorrected": 0,
+      "ReadErrorsTotal": 0,
+      "WriteErrorsTotal": 0,
+      "PowerOnHours": 2150
+    }
+  ],
+  "storage.free_space": [
+    {
+      "DeviceID": "C:",
+      "Size": 499431239680,
+      "FreeSpace": 214748364800
+    }
+  ],
+  "storage.activity": [
+    {
+      "BusyPercent": 3.6666666666666665,
+      "AvgQueueLength": 0.021349,
+      "AvgResponseMs": 0.8417
+    }
+  ],
+  "memory.pressure": [
+    {
+      "TotalVisibleMemoryKB": 16651404,
+      "AvailableMBytes": 9120,
+      "PercentCommittedBytesInUse": 41,
+      "HardFaultsPerSec": 2.3333333333333335,
+      "PageFileAllocatedMB": 2432,
+      "PageFileCurrentMB": 120
+    }
+  ],
+  "cpu.load": [
+    {
+      "LoadPercent": 7.333333333333333,
+      "PerformancePercent": 118.4,
+      "MaxClockMHz": 2803,
+      "LogicalProcessors": 8,
+      "Processes": [
+        {
+          "Name": "chrome",
+          "PercentProcessorTime": 12,
+          "WorkingSetPrivate": 412893184
+        },
+        {
+          "Name": "chrome#1",
+          "PercentProcessorTime": 6,
+          "WorkingSetPrivate": 201326592
+        },
+        {
+          "Name": "MsMpEng",
+          "PercentProcessorTime": 4,
+          "WorkingSetPrivate": 268435456
+        },
+        {
+          "Name": "explorer",
+          "PercentProcessorTime": 2,
+          "WorkingSetPrivate": 98566144
+        },
+        {
+          "Name": "Teams",
+          "PercentProcessorTime": 2,
+          "WorkingSetPrivate": 350224384
+        },
+        {
+          "Name": "svchost#12",
+          "PercentProcessorTime": 0,
+          "WorkingSetPrivate": 15728640
+        },
+        {
+          "Name": "System",
+          "PercentProcessorTime": 0,
+          "WorkingSetPrivate": 143360
+        }
+      ]
+    }
+  ],
+  "system.startup": [
+    {
+      "Name": "SecurityHealth",
+      "Command": "%windir%\\system32\\SecurityHealthSystray.exe",
+      "Location": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "RtkAudUService",
+      "Command": "\"C:\\WINDOWS\\System32\\DriverStore\\FileRepository\\realtekservice.inf_amd64_0a1b2c3d4e5f6a7b\\RtkAudUService64.exe\" -background",
+      "Location": "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "OneDrive",
+      "Command": "\"C:\\Users\\usuario\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background",
+      "Location": "HKU\\S-1-5-21-1111111111-2222222222-3333333333-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "OneDrive",
+      "Command": "\"C:\\Users\\usuario\\AppData\\Local\\Microsoft\\OneDrive\\OneDrive.exe\" /background",
+      "Location": "HKU\\S-1-5-21-1111111111-2222222222-3333333333-1001\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Run"
+    },
+    {
+      "Name": "Send to OneNote",
+      "Command": "Send to OneNote.lnk",
+      "Location": "Startup"
+    }
+  ],
+  "system.uptime": [
+    {
+      "UptimeHours": 30.512345
+    }
+  ],
+  "system.events": [
+    {
+      "WindowDays": 7,
+      "DiskErrors": 0,
+      "WheaErrors": 0,
+      "UnexpectedShutdowns": 0,
+      "BugChecks": 0,
+      "AppCrashes": 2
+    }
+  ],
+  "system.power_plan": [
+    {
+      "SchemeGuid": "381b4222-f694-41f0-9685-ff5bb260df2e",
+      "PlanName": "Equilibrado",
+      "BatteryStatus": null
+    }
+  ],
+  "system.antivirus": [
+    {
+      "Products": [
+        {
+          "Name": "Windows Defender",
+          "State": 397568
+        }
+      ],
+      "DefenderPresent": true,
+      "DefenderEnabled": true,
+      "DefenderRealTime": true,
+      "ScanInProgress": false
+    }
+  ],
+  "system.devices": [],
+  "system.pending_reboot": [
+    {
+      "Reasons": []
+    }
+  ],
+  "network.connectivity": [
+    {
+      "HasRoute": true,
+      "Gateway": {
+        "Sent": 10,
+        "Lost": 0,
+        "AvgMs": 1.2
+      },
+      "Internet": [
+        {
+          "Sent": 5,
+          "Lost": 0,
+          "AvgMs": 14.6
+        },
+        {
+          "Sent": 5,
+          "Lost": 0,
+          "AvgMs": 17.2
+        }
+      ],
+      "DnsMs": 23.41
+    }
+  ],
+  "network.wifi": [
+    {
+      "OnWifi": false
+    }
+  ]
+}
