@@ -20,3 +20,6 @@ dist/
 *.xlsx
 *.pdf
 !docs/**/*.pdf
+
+# Portable settings written next to the executable
+extract.ini

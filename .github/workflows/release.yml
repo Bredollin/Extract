@@ -1,0 +1,27 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ".[gui,dev]"
+      - run: pytest -q
+        env:
+          QT_QPA_PLATFORM: offscreen
+      - run: pyinstaller packaging/extract.spec --noconfirm
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/Extract.exe
+          generate_release_notes: true
