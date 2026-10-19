@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "extract"
+dynamic = ["version"]
+description = "Hardware, health and performance diagnostics for Windows machines."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Michael Bredollin" }]
+keywords = ["windows", "hardware", "diagnostics", "benchmark", "inventory", "it-support"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: Microsoft :: Windows",
+    "Environment :: Win32 (MS Windows)",
+    "Intended Audience :: System Administrators",
+    "Topic :: System :: Hardware",
+]
+dependencies = [
+    "openpyxl>=3.1",
+    "reportlab>=4.0",
+]
+
+[project.optional-dependencies]
+gui = ["PySide6>=6.6"]
+dev = ["pytest>=8", "ruff>=0.6", "pyinstaller>=6"]
+
+[project.scripts]
+extract-cli = "extract.cli:main"
+
+[project.gui-scripts]
+extract = "extract.gui.app:main"
+
+[project.urls]
+Repository = "https://github.com/Bredollin/Extract"
+
+[tool.setuptools.dynamic]
+version = { attr = "extract.__version__" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+extract = ["gui/assets/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = ["windows: needs a real Windows machine (runs on the windows-latest CI runner)"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "SIM", "RUF"]
+ignore = ["RUF001", "RUF002", "RUF003"]
