@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import unicodedata
 from datetime import datetime
 from pathlib import Path
 
@@ -21,8 +22,9 @@ _UNSAFE_CHARS = re.compile(r"[^A-Za-z0-9._-]+")
 
 
 def safe_filename(name: str) -> str:
-    """Replace characters Windows does not accept in file names."""
-    cleaned = _UNSAFE_CHARS.sub("-", name.strip()).strip("-.")
+    """Turn any name into a portable file name: accents dropped, other symbols as `-`."""
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
+    cleaned = _UNSAFE_CHARS.sub("-", ascii_name.strip()).strip("-.")
     return cleaned or "unnamed"
 
 

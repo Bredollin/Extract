@@ -92,7 +92,7 @@ def test_cancel_token():
 
 
 def test_safe_filename():
-    assert safe_filename("PC do João/01") == "PC-do-Jo-o-01"
+    assert safe_filename("PC do João/01") == "PC-do-Joao-01"
     assert safe_filename("...") == "unnamed"
 
 
