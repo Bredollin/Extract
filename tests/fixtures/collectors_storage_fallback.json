@@ -1,0 +1,21 @@
+[
+  {
+    "SystemDiskNumber": null,
+    "PhysicalDisks": [],
+    "DiskDrives": {
+      "Index": 0,
+      "Model": "SAMSUNG SSD 860 EVO 250GB",
+      "SerialNumber": "   ",
+      "Size": 250056737280,
+      "InterfaceType": "IDE",
+      "PNPDeviceID": "SCSI\\DISK&VEN_SAMSUNG\\4&0000"
+    },
+    "Volumes": {
+      "DeviceID": "C:",
+      "VolumeName": "Sistema",
+      "FileSystem": "NTFS",
+      "Size": 249510000640,
+      "FreeSpace": null
+    }
+  }
+]

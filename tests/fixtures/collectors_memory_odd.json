@@ -1,0 +1,17 @@
+[
+  {
+    "Modules": {
+      "DeviceLocator": "ChannelA-DIMM0",
+      "BankLabel": "BANK 0",
+      "Capacity": 4294967296,
+      "Speed": 1600,
+      "ConfiguredClockSpeed": null,
+      "Manufacturer": "0000",
+      "PartNumber": null,
+      "SMBIOSMemoryType": 2,
+      "MemoryType": 0
+    },
+    "Slots": null,
+    "TotalPhysicalMemory": 4183232512
+  }
+]

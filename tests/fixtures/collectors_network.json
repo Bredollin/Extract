@@ -1,0 +1,50 @@
+[
+  {
+    "Configs": [
+      {
+        "InterfaceIndex": 12,
+        "Description": "Realtek PCIe GbE Family Controller",
+        "MACAddress": "00:11:22:33:44:55",
+        "IPAddress": [
+          "192.168.0.25",
+          "fe80::1c2b:3a4d:5e6f:7a8b"
+        ],
+        "DefaultIPGateway": [
+          "192.168.0.1"
+        ],
+        "DNSServerSearchOrder": [
+          "192.168.0.1",
+          "8.8.8.8"
+        ],
+        "DHCPEnabled": true
+      },
+      {
+        "InterfaceIndex": 7,
+        "Description": "Intel(R) Wi-Fi 6 AX201 160MHz",
+        "MACAddress": "66:77:88:99:AA:BB",
+        "IPAddress": "10.0.0.8",
+        "DefaultIPGateway": null,
+        "DNSServerSearchOrder": null,
+        "DHCPEnabled": false
+      }
+    ],
+    "Adapters": [
+      {
+        "InterfaceIndex": 12,
+        "Name": "Ethernet",
+        "InterfaceDescription": "Realtek PCIe GbE Family Controller",
+        "Status": "Up",
+        "Speed": 1000000000,
+        "MacAddress": "00-11-22-33-44-55"
+      },
+      {
+        "InterfaceIndex": 7,
+        "Name": "Wi-Fi",
+        "InterfaceDescription": "Intel(R) Wi-Fi 6 AX201 160MHz",
+        "Status": "Up",
+        "Speed": 866700000,
+        "MacAddress": "66-77-88-99-AA-BB"
+      }
+    ]
+  }
+]

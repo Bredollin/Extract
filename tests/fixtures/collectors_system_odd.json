@@ -1,0 +1,23 @@
+[
+  {
+    "Hostname": "PC-ANTIGO",
+    "UserName": null,
+    "EnvUser": "tecnico",
+    "Caption": "Microsoft Windows 10 Home",
+    "Version": "10.0.19045",
+    "BuildNumber": "19045",
+    "DisplayVersion": null,
+    "UBR": null,
+    "Architecture": "x86",
+    "Manufacturer": "To Be Filled By O.E.M.",
+    "Model": "System Product Name",
+    "SerialNumber": "Default string",
+    "BiosVersion": "P1.40",
+    "FirmwareType": "Legacy",
+    "InstallDate": "20190312141500.000000-180",
+    "LastBootUpTime": {
+      "value": "/Date(1729335600000)/",
+      "DateTime": "sábado, 19 de outubro de 2024 08:00:00"
+    }
+  }
+]

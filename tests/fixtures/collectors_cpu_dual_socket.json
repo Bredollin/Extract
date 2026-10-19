@@ -1,0 +1,22 @@
+[
+  {
+    "Name": "Intel(R) Xeon(R) CPU E5-2620 v4 @ 2.10GHz   ",
+    "Manufacturer": "GenuineIntel",
+    "NumberOfCores": 8,
+    "NumberOfLogicalProcessors": 16,
+    "MaxClockSpeed": 2101,
+    "SocketDesignation": "CPU1",
+    "L2CacheSize": 2048,
+    "L3CacheSize": 20480
+  },
+  {
+    "Name": "Intel(R) Xeon(R) CPU E5-2620 v4 @ 2.10GHz   ",
+    "Manufacturer": "GenuineIntel",
+    "NumberOfCores": 8,
+    "NumberOfLogicalProcessors": 16,
+    "MaxClockSpeed": 2101,
+    "SocketDesignation": "CPU2",
+    "L2CacheSize": 2048,
+    "L3CacheSize": null
+  }
+]

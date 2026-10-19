@@ -1,0 +1,61 @@
+[
+  {
+    "SystemDiskNumber": 1,
+    "PhysicalDisks": [
+      {
+        "DeviceId": "0",
+        "FriendlyName": "WDC WD10EZEX-08WN4A0",
+        "Model": "WDC WD10EZEX-08WN4A0",
+        "SerialNumber": "WD-WCC6Y0000000",
+        "MediaType": 3,
+        "BusType": 11,
+        "HealthStatus": 0,
+        "Size": 1000204886016
+      },
+      {
+        "DeviceId": "1",
+        "FriendlyName": "KINGSTON SNV2S500G",
+        "Model": "KINGSTON SNV2S500G",
+        "SerialNumber": "0000_0000_0000_0001.",
+        "MediaType": 4,
+        "BusType": 17,
+        "HealthStatus": 1,
+        "Size": 500107862016
+      }
+    ],
+    "DiskDrives": [
+      {
+        "Index": 0,
+        "Model": "WDC WD10EZEX-08WN4A0",
+        "SerialNumber": "WD-WCC6Y0000000",
+        "Size": 1000202273280,
+        "InterfaceType": "IDE",
+        "PNPDeviceID": "SCSI\\DISK&VEN_WDC&PROD_WD10EZEX\\4&0000&0&000000"
+      },
+      {
+        "Index": 1,
+        "Model": "KINGSTON SNV2S500G",
+        "SerialNumber": "0000_0000_0000_0001.",
+        "Size": 500105249280,
+        "InterfaceType": "SCSI",
+        "PNPDeviceID": "SCSI\\DISK&VEN_NVME&PROD_KINGSTON_SNV2S50\\5&0000&0&000000"
+      }
+    ],
+    "Volumes": [
+      {
+        "DeviceID": "D:",
+        "VolumeName": "Dados",
+        "FileSystem": "NTFS",
+        "Size": 1000203087872,
+        "FreeSpace": 612345678848
+      },
+      {
+        "DeviceID": "C:",
+        "VolumeName": "",
+        "FileSystem": "NTFS",
+        "Size": 499461910528,
+        "FreeSpace": 42949672960
+      }
+    ]
+  }
+]

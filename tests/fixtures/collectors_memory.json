@@ -1,0 +1,30 @@
+[
+  {
+    "Modules": [
+      {
+        "DeviceLocator": "DIMM1",
+        "BankLabel": "BANK 0",
+        "Capacity": 8589934592,
+        "Speed": 2666,
+        "ConfiguredClockSpeed": 2666,
+        "Manufacturer": "Kingston",
+        "PartNumber": "9905702-017.A00G    ",
+        "SMBIOSMemoryType": 26,
+        "MemoryType": 0
+      },
+      {
+        "DeviceLocator": "DIMM2",
+        "BankLabel": "BANK 1",
+        "Capacity": "8589934592",
+        "Speed": 2666,
+        "ConfiguredClockSpeed": 2400,
+        "Manufacturer": "80CE000080CE",
+        "PartNumber": "M378A1K43DB2-CTD   ",
+        "SMBIOSMemoryType": 26,
+        "MemoryType": 0
+      }
+    ],
+    "Slots": 4,
+    "TotalPhysicalMemory": 17009356800
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "Name": "Intel(R) Core(TM) i5-10400 CPU @ 2.90GHz",
+    "Manufacturer": "GenuineIntel",
+    "NumberOfCores": 6,
+    "NumberOfLogicalProcessors": 12,
+    "MaxClockSpeed": 2904,
+    "SocketDesignation": "LGA1200",
+    "L2CacheSize": 1536,
+    "L3CacheSize": 12288
+  }
+]

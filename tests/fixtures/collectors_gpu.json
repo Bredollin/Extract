@@ -1,0 +1,34 @@
+[
+  {
+    "Controllers": [
+      {
+        "Name": "NVIDIA GeForce GTX 1660 SUPER",
+        "AdapterRAM": 4293918720,
+        "DriverVersion": "31.0.15.5222",
+        "DriverDate": "/Date(1712275200000)/"
+      },
+      {
+        "Name": "Intel(R) UHD Graphics 630",
+        "AdapterRAM": 1073741824,
+        "DriverVersion": "31.0.101.2115",
+        "DriverDate": "20230124000000.000000-000"
+      },
+      {
+        "Name": "Microsoft Remote Display Adapter",
+        "AdapterRAM": null,
+        "DriverVersion": "10.0.22621.1",
+        "DriverDate": "/Date(1151020800000)/"
+      }
+    ],
+    "Drivers": [
+      {
+        "DriverDesc": "NVIDIA GeForce GTX 1660 SUPER",
+        "MemorySize": 6442450944
+      },
+      {
+        "DriverDesc": "Intel(R) UHD Graphics 630",
+        "MemorySize": null
+      }
+    ]
+  }
+]

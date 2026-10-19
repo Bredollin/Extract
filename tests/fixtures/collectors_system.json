@@ -1,0 +1,20 @@
+[
+  {
+    "Hostname": "RECEPCAO-01",
+    "UserName": "RECEPCAO-01\\usuario",
+    "EnvUser": "usuario",
+    "Caption": "Microsoft Windows 11 Pro",
+    "Version": "10.0.22631",
+    "BuildNumber": "22631",
+    "DisplayVersion": "23H2",
+    "UBR": 4317,
+    "Architecture": "AMD64",
+    "Manufacturer": "Dell Inc.",
+    "Model": "OptiPlex 3080",
+    "SerialNumber": "ABC1234",
+    "BiosVersion": "2.24.0",
+    "FirmwareType": "UEFI",
+    "InstallDate": "/Date(1688137200000)/",
+    "LastBootUpTime": "/Date(1729335600000)/"
+  }
+]
