@@ -4,14 +4,19 @@ on:
   push:
     tags: ["v*"]
 
+# Nothing gets write access by default; only the publish job below does.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
+  # Installs third-party packages and runs the tests, so it gets a read-only token and does
+  # not keep it in .git/config.
   build:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -20,8 +25,30 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
       - run: pyinstaller packaging/extract.spec --noconfirm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Extract-windows
+          path: dist/Extract.exe
+          if-no-files-found: error
+
+  # Runs no project code: it only takes the built exe and attaches it to the release.
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Extract-windows
+          path: dist
+      - name: Checksum
+        working-directory: dist
+        run: sha256sum Extract.exe | tee Extract.exe.sha256
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/Extract.exe
+          files: |
+            dist/Extract.exe
+            dist/Extract.exe.sha256
           generate_release_notes: true

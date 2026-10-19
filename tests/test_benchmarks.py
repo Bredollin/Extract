@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 import tempfile
 from collections import namedtuple
 
@@ -60,8 +61,9 @@ def test_run_benchmarks_quick_returns_sane_metrics(clock_ps, tmp_path):
     assert by_id["memory.bandwidth"].metrics["copy_gb_s"].value > 0
     assert by_id["storage.sequential"].metrics["write_mb_s"].value > 0
     assert by_id["storage.random"].metrics["read_iops"].value > 0
-    # Linux uses the buffered fallback, which must be flagged as such.
-    assert by_id["storage.random"].metrics["uncached"].value == 0
+    # Windows bypasses the file cache; elsewhere the buffered fallback must say so.
+    expected_uncached = 1 if sys.platform == "win32" else 0
+    assert by_id["storage.random"].metrics["uncached"].value == expected_uncached
     assert seen == sorted(seen) and seen[-1] == 1.0
     assert _leftover_files(tmp_path) == []
 

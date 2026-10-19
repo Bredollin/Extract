@@ -219,3 +219,54 @@ def test_default_reports_root_falls_back_when_read_only(tmp_path, monkeypatch):
     monkeypatch.setattr(report_paths, "_is_writable", lambda folder: False)
     monkeypatch.setattr(report_paths.Path, "home", lambda: tmp_path / "home")
     assert report_paths.default_reports_root() == tmp_path / "home" / "Documents" / "Extract"
+
+
+# --- Hardening against hostile names and edited files ---------------------------------
+
+
+@pytest.mark.parametrize(
+    ("name", "expected"),
+    [
+        ("CON", "_CON"),
+        ("nul.txt", "_nul.txt"),
+        ("COM1", "_COM1"),
+        ("../../x", "x"),
+        ("..", "unnamed"),
+    ],
+)
+def test_safe_filename_blocks_traversal_and_device_names(name, expected):
+    from extract.reports.storage import safe_filename
+
+    assert safe_filename(name) == expected
+    assert len(safe_filename("a" * 500)) <= 80
+
+
+def test_excel_never_writes_report_text_as_formula(tmp_path):
+    report = _machine("PC-01", slow_disk=True)
+    report.client = '=HYPERLINK("http://example.invalid","x")'
+    path = export_excel([report], tmp_path / "out.xlsx")
+
+    cell = load_workbook(path)["Resumo"]["B2"]
+    assert cell.data_type == "s"
+    assert cell.value == report.client
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        "[1]",
+        '{"inventory": []}',
+        '{"inventory": {"system": {"hostname": 5}}}',
+        '{"findings": {"x": 1}}',
+        "[" * 100_000,
+    ],
+)
+def test_load_report_rejects_malformed_files(tmp_path, content):
+    from extract.reports import load_report
+    from extract.reports.storage import load_folder
+
+    path = tmp_path / "PC_2026-10-19_143000.json"
+    path.write_text(content, encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_report(path)
+    assert load_folder(tmp_path) == []

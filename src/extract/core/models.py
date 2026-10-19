@@ -330,6 +330,11 @@ def _coerce(tp: Any, value: Any) -> Any:
     args = typing.get_args(tp)
     if value is None:
         return None
+    # Reports are loaded from files that may have been edited: reject wrong shapes here so
+    # bad data fails at load time (TypeError) instead of crashing the GUI or an export.
+    expected = dict if is_dataclass(tp) else _JSON_TYPES.get(origin or tp)
+    if expected and not isinstance(value, expected):
+        raise TypeError(f"expected {getattr(tp, '__name__', tp)}, got {type(value).__name__}")
     if origin is list:
         return [_coerce(args[0], v) for v in value]
     if origin is dict:
@@ -339,3 +344,13 @@ def _coerce(tp: Any, value: Any) -> Any:
     if is_dataclass(tp):
         return from_dict(tp, value)
     return value
+
+
+_JSON_TYPES: dict[Any, type | tuple[type, ...]] = {
+    str: str,
+    int: (int, float),
+    float: (int, float),
+    bool: bool,
+    list: list,
+    dict: dict,
+}

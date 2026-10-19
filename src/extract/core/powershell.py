@@ -9,8 +9,10 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import subprocess
 import sys
+from pathlib import Path
 from typing import Any, Protocol
 
 log = logging.getLogger(__name__)
@@ -19,6 +21,20 @@ DEFAULT_TIMEOUT_S = 60
 
 # Keeps a console window from flashing on every query when running as a windowed .exe.
 _CREATE_NO_WINDOW = 0x08000000 if sys.platform == "win32" else 0
+
+
+def default_executable() -> str:
+    """Full path of Windows PowerShell, so a stray `powershell.exe` is never picked up.
+
+    A bare name would be searched in the exe's own folder and the working directory first,
+    and both are usually the technician's USB stick or the client's Downloads folder.
+    """
+    if sys.platform == "win32":
+        root = os.environ.get("SYSTEMROOT", r"C:\Windows")
+        path = Path(root) / "System32" / "WindowsPowerShell" / "v1.0" / "powershell.exe"
+        if path.is_file():
+            return str(path)
+    return "powershell.exe"
 
 
 class PowerShellError(RuntimeError):
@@ -38,8 +54,8 @@ class PowerShell:
     as an argument list (no `shell=True`), so there is no shell interpretation involved.
     """
 
-    def __init__(self, executable: str = "powershell.exe") -> None:
-        self.executable = executable
+    def __init__(self, executable: str | None = None) -> None:
+        self.executable = executable or default_executable()
 
     def query(self, script: str, timeout: float = DEFAULT_TIMEOUT_S) -> list[dict[str, Any]]:
         wrapped = (

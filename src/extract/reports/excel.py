@@ -182,7 +182,12 @@ def _fill(sheet: Worksheet, headers: list[str], rows: Sequence[Sequence[Any]]) -
         for (cell,) in sheet.iter_rows(min_row=2, min_col=index, max_col=index):
             cell.alignment = alignment
             cell.border = _BORDER
-            if isinstance(cell.value, datetime):
+            if cell.data_type == "f":
+                # Report text can come from the client's machine (device names, startup
+                # entries) or from an edited JSON file: never let it become a live formula.
+                cell.data_type = "s"
+                cell.quotePrefix = True
+            elif isinstance(cell.value, datetime):
                 cell.number_format = "dd/mm/yyyy hh:mm"
             elif isinstance(cell.value, float):
                 cell.number_format = "#,##0.0"
