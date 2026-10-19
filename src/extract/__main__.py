@@ -1,10 +1,12 @@
-"""`python -m extract`: opens the GUI, or the CLI when arguments are given."""
+"""`python -m extract`: opens the GUI, or the CLI when a CLI command is given."""
 
 import sys
 
+CLI_COMMANDS = {"scan", "export", "--version", "-h", "--help"}
+
 
 def main() -> int:
-    if len(sys.argv) > 1:
+    if CLI_COMMANDS.intersection(sys.argv[1:2]):
         from extract.cli import main as cli_main
 
         return cli_main()

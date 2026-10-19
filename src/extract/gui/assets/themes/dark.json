@@ -1,0 +1,18 @@
+{
+  "name": "dark",
+  "label": "Escuro",
+  "colors": {
+    "background": "#0E1217",
+    "surface": "#161B22",
+    "surface_alt": "#1E252E",
+    "border": "#2A333E",
+    "text": "#E6EDF3",
+    "text_muted": "#9BA7B4",
+    "accent": "#6EA8FE",
+    "accent_text": "#0A1628",
+    "ok": "#4CC38A",
+    "warning": "#E8B04B",
+    "critical": "#F47A72",
+    "info": "#6CC4F0"
+  }
+}

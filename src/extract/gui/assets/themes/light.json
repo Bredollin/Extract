@@ -1,0 +1,18 @@
+{
+  "name": "light",
+  "label": "Claro",
+  "colors": {
+    "background": "#F3F5F8",
+    "surface": "#FFFFFF",
+    "surface_alt": "#F0F3F7",
+    "border": "#DCE1E8",
+    "text": "#18202B",
+    "text_muted": "#566172",
+    "accent": "#1D58D8",
+    "accent_text": "#FFFFFF",
+    "ok": "#116B34",
+    "warning": "#975A00",
+    "critical": "#C4302B",
+    "info": "#0B6BA8"
+  }
+}
