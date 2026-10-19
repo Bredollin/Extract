@@ -260,6 +260,7 @@ def test_excel_never_writes_report_text_as_formula(tmp_path):
         '{"findings": {"x": 1}}',
         "[" * 100_000,
     ],
+    ids=["list", "wrong-section-type", "wrong-field-type", "dict-for-list", "deep-nesting"],
 )
 def test_load_report_rejects_malformed_files(tmp_path, content):
     from extract.reports import load_report
