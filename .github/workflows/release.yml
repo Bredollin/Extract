@@ -3,6 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 # Nothing gets write access by default; only the publish job below does.
 permissions:
@@ -13,6 +14,8 @@ jobs:
   # not keep it in .git/config.
   build:
     runs-on: windows-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -21,6 +24,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install ".[gui,dev]"
+      - name: Resolve release tag
+        id: version
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then tag="$GITHUB_REF_NAME"
+          else tag="v$(python -c 'import extract; print(extract.__version__)')"; fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
       - run: pytest -q
         env:
           QT_QPA_PLATFORM: offscreen
@@ -48,6 +58,8 @@ jobs:
       - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ needs.build.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: |
             dist/Extract.exe
             dist/Extract.exe.sha256
