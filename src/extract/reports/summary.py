@@ -225,7 +225,12 @@ def inventory_rows(report: MachineReport) -> list[tuple[str, str, str]]:
             (
                 "Rede",
                 adapter.name,
-                _join(", ".join(adapter.ipv4), "DHCP" if adapter.dhcp else "IP fixo", speed),
+                _join(
+                    ", ".join(adapter.ipv4),
+                    "DHCP" if adapter.dhcp else "IP fixo",
+                    f"MAC {adapter.mac_address}" if adapter.mac_address else "",
+                    speed,
+                ),
             )
         )
     return [row for row in rows if row[1] or row[2]]

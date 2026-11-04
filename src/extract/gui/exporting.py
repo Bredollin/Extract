@@ -19,11 +19,19 @@ log = logging.getLogger(__name__)
 
 FORMATS = {
     "excel": ("Planilha Excel", ".xlsx", "Planilha Excel (*.xlsx)"),
+    "machine": ("Planilha Excel", ".xlsx", "Planilha Excel (*.xlsx)"),
     "pdf": ("Relatório PDF", ".pdf", "Documento PDF (*.pdf)"),
 }
 
 
 def export_reports(kind: str, reports: list[MachineReport], path: Path) -> Path:
+    if kind == "machine":
+        from extract.gui.pages.results.hardware import hardware_sections
+        from extract.reports.excel import export_machine_excel
+
+        (report,) = reports
+        sections = [(title, rows) for title, _icon, rows in hardware_sections(report.inventory)]
+        return export_machine_excel(report, sections, path)
     if kind == "excel":
         from extract.reports.excel import export_excel
 

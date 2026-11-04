@@ -315,3 +315,12 @@ def test_icon_ico_has_multiple_sizes():
     reserved, kind, count = struct.unpack("<HHH", data[:6])
     assert (reserved, kind) == (0, 1)
     assert count >= 5
+
+
+def test_hardware_sections_show_mac(window):
+    from extract.gui.pages.results.hardware import hardware_sections
+
+    sections = {
+        title: rows for title, _icon, rows in hardware_sections(demo.build_demo_report().inventory)
+    }
+    assert any("MAC" in value for _key, value in sections["Rede"])

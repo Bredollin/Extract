@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-11-04
+
+### Added
+
+- "Exportar Excel" on the Resultados page: one workbook for the machine with the same
+  sections as the Hardware tab.
+- MAC address of each network adapter on the Hardware tab and in the PDF; disk health on the
+  Hardware tab.
+
+### Changed
+
+- PDF of quick inventories is an inventory report: one table per group with a row per
+  machine (Windows, memory, system disk, IP with DHCP or fixed, MAC), then compact details
+  several per page, without the findings section (15 machines fit in about 7 pages).
+
 ## [2.1.0] - 2026-11-04
 
 ### Changed

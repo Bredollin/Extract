@@ -58,7 +58,10 @@ class ResultsPage(QWidget):
         self.json_button = button("Abrir JSON", "file-json")
         self.json_button.clicked.connect(self._open_json)
         self.header.add_action(self.json_button)
-        self.pdf_button = button("Exportar PDF", "file-pdf", "primary")
+        self.excel_button = button("Exportar Excel", "sheet", "primary")
+        self.excel_button.clicked.connect(self._export_excel)
+        self.header.add_action(self.excel_button)
+        self.pdf_button = button("Exportar PDF", "file-pdf")
         self.pdf_button.clicked.connect(self._export_pdf)
         self.header.add_action(self.pdf_button)
         column.addWidget(self.header)
@@ -110,12 +113,16 @@ class ResultsPage(QWidget):
             exporting.open_path(self.path)
 
     def _export_pdf(self) -> None:
+        self._export("pdf")
+
+    def _export_excel(self) -> None:
+        self._export("machine")
+
+    def _export(self, kind: str) -> None:
         if self.report is None:
             return
         folder = self.path.parent if self.path else settings.reports_root()
-        path = exporting.export_with_dialog(
-            self, "pdf", [self.report], folder, self.report.hostname
-        )
+        path = exporting.export_with_dialog(self, kind, [self.report], folder, self.report.hostname)
         if path is not None:
             exporting.open_path(path)
 
