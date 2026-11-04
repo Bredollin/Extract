@@ -150,7 +150,7 @@ def test_excel_export(tmp_path, reports):
 
     inventory = workbook["Inventário"]
     escritorio, caixa = _rows(inventory)  # sorted by group: Financeiro before Recepção
-    assert (caixa["Grupo"], caixa["Computador"]) == ("Recepção", "CAIXA-01")
+    assert (caixa["Grupo"], caixa["Nome da máquina"]) == ("Recepção", "CAIXA-01")
     assert escritorio["Grupo"] == "Financeiro"
     assert caixa["Windows"] == "Windows 10 Pro"
     assert caixa["Versão"] == "22H2"
