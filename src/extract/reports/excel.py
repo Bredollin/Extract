@@ -198,6 +198,59 @@ def export_excel(reports: Sequence[MachineReport], path: Path) -> Path:
     return path
 
 
+def export_machine_excel(
+    report: MachineReport, sections: Sequence[tuple[str, Sequence[tuple[str, str]]]], path: Path
+) -> Path:
+    """One machine, laid out like the Hardware tab: a block of key/value rows per section."""
+    workbook = Workbook()
+    sheet = workbook.active
+    sheet.title = "Máquina"
+    title_font = Font(bold=True, size=14, color="1F3A5F")
+    key_font = Font(bold=True, color="5B6573")
+    sheet.append([report.hostname])
+    sheet["A1"].font = title_font
+    info = [
+        ("Cliente", report.client),
+        ("Grupo", group_label(report)),
+        ("Data do inventário", _parse_date(report.created_at)),
+    ]
+    for key, value in info:
+        sheet.append([key, value])
+    for cell, value_cell in sheet.iter_rows(min_row=2, max_row=sheet.max_row, max_col=2):
+        cell.font = key_font
+        if isinstance(value_cell.value, datetime):
+            value_cell.number_format = "dd/mm/yyyy hh:mm"
+    for title, rows in sections:
+        sheet.append([])
+        sheet.append([title])
+        header = sheet.cell(row=sheet.max_row, column=1)
+        for column in (1, 2):
+            cell = sheet.cell(row=sheet.max_row, column=column)
+            cell.fill = _HEADER_FILL
+            cell.font = _HEADER_FONT
+        header.alignment = Alignment(vertical="center")
+        shown = [(k, v) for k, v in rows if v] or [("", "Sem dados coletados")]
+        for key, value in shown:
+            sheet.append([key, value])
+            row = sheet.max_row
+            sheet.cell(row=row, column=1).font = key_font
+            sheet.cell(row=row, column=1).alignment = _TOP
+            sheet.cell(row=row, column=2).alignment = _WRAP
+            for column in (1, 2):
+                sheet.cell(row=row, column=column).border = _BORDER
+    for row in sheet.iter_rows():
+        for cell in row:
+            if cell.data_type == "f":  # text from the machine never becomes a formula
+                cell.data_type = "s"
+                cell.quotePrefix = True
+    sheet.column_dimensions["A"].width = 34
+    sheet.column_dimensions["B"].width = 80
+    path.parent.mkdir(parents=True, exist_ok=True)
+    workbook.save(path)
+    log.info("Machine Excel saved to %s", path)
+    return path
+
+
 def _inventory_row(report: MachineReport) -> list[Any]:
     inv = report.inventory
     system, memory = inv.system, inv.memory

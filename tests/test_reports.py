@@ -351,3 +351,29 @@ def test_load_report_rejects_malformed_files(tmp_path, content):
     with pytest.raises(ValueError):
         load_report(path)
     assert load_folder(tmp_path) == []
+
+
+def test_pdf_inventory_only_groups_machines_without_findings(tmp_path):
+    fleet = []
+    for index in range(15):
+        report = _machine(f"PC-{index:02}", slow_disk=index % 2 == 0)
+        report.health, report.benchmarks = [], []
+        report.group = ["Recepção", "Financeiro", "ADM"][index % 3]
+        fleet.append(report)
+    data = export_pdf(fleet, tmp_path / "inv.pdf").read_bytes()
+    assert data.startswith(b"%PDF")
+    assert _page_count(data) < 10  # not one page per machine
+
+
+def test_machine_excel_has_one_block_per_section(tmp_path):
+    from extract.reports.excel import export_machine_excel
+
+    report = _machine("PC-01", slow_disk=False)
+    report.group = "Recepção"
+    sections = [("Sistema", [("Nome", "PC-01")]), ("Rede", [("Ethernet", "MAC 00:11")])]
+    sheet = load_workbook(export_machine_excel(report, sections, tmp_path / "pc.xlsx"))["Máquina"]
+    values = [tuple(row) for row in sheet.iter_rows(values_only=True)]
+    assert values[0][0] == "PC-01"
+    assert ("Grupo", "Recepção") in values
+    assert ("Rede", None) in values
+    assert ("Ethernet", "MAC 00:11") in values

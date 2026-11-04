@@ -1,3 +1,3 @@
 """Extract: hardware, health and performance diagnostics for Windows machines."""
 
-__version__ = "2.1.0"
+__version__ = "2.2.0"

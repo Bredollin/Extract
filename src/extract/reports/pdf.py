@@ -2,8 +2,13 @@
 
 A cover page summarizes the visit (client, date, machines, findings overview); then each
 machine gets its own section with key specs, findings with recommendations, health checks
-and benchmark results. Built with reportlab's platypus so text wraps and tables split
-across pages on their own.
+and benchmark results.
+
+When every report is a quick inventory (no health checks or benchmarks), the PDF is an
+inventory report instead: one table per group with a row per machine, then a compact
+block of specs per machine, several per page, with no findings section.
+
+Built with reportlab's platypus so text wraps and tables split across pages on their own.
 """
 
 from __future__ import annotations
@@ -37,13 +42,23 @@ from extract.reports.summary import (
     SEVERITY_COLORS,
     STATUS_COLORS,
     client_label,
+    disk_health,
+    disk_type,
     format_date,
     format_metric,
+    format_number,
+    group_label,
     inventory_rows,
+    ip_mode,
     os_label,
+    primary_adapter,
+    ram_label,
     severity_counts,
     sorted_findings,
+    system_disk,
     top_finding,
+    windows_edition,
+    windows_feature_version,
 )
 
 log = logging.getLogger(__name__)
@@ -54,8 +69,10 @@ _PRIMARY = colors.HexColor("#1F3A5F")
 _MUTED = colors.HexColor("#5B6573")
 _GRID = colors.HexColor("#D0D7E2")
 _ZEBRA = colors.HexColor("#F5F7FA")
-# Hardware rows that matter to the client; per-module and network details stay in Excel.
-_KEY_COMPONENTS = ("Sistema", "Computador", "Processador", "Memória", "Disco", "Unidade", "Vídeo")
+# Hardware rows that matter to the client; per-module details stay in Excel.
+_KEY_COMPONENTS = (
+    "Sistema", "Computador", "Processador", "Memória", "Disco", "Unidade", "Vídeo", "Rede",
+)  # fmt: skip
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -93,10 +110,16 @@ def export_pdf(reports: Sequence[MachineReport], path: Path) -> Path:
     """Write the client report to `path` and return it."""
     styles = _styles()
     client = client_label(reports)
-    story: list[Flowable] = _cover(reports, client, styles)
-    for report in reports:
-        story.append(PageBreak())
-        story.extend(_machine_section(report, styles))
+    inventory = bool(reports) and all(is_inventory_only(r) for r in reports)
+    if inventory:
+        story = _inventory_story(reports, client, styles)
+        title = f"Relatório de inventário - {client}"
+    else:
+        story = _cover(reports, client, styles)
+        for report in reports:
+            story.append(PageBreak())
+            story.extend(_machine_section(report, styles))
+        title = f"Relatório de diagnóstico - {client}"
 
     path.parent.mkdir(parents=True, exist_ok=True)
     doc = SimpleDocTemplate(
@@ -106,7 +129,7 @@ def export_pdf(reports: Sequence[MachineReport], path: Path) -> Path:
         rightMargin=_MARGIN,
         topMargin=_MARGIN,
         bottomMargin=_MARGIN,
-        title=f"Relatório de diagnóstico - {client}",
+        title=title,
         author=f"Extract {__version__}",
     )
 
@@ -121,6 +144,99 @@ def export_pdf(reports: Sequence[MachineReport], path: Path) -> Path:
     doc.build(story, onFirstPage=footer, onLaterPages=footer)
     log.info("PDF report saved to %s", path)
     return path
+
+
+def is_inventory_only(report: MachineReport) -> bool:
+    return not report.health and not report.benchmarks
+
+
+# --- inventory report ------------------------------------------------------------------
+
+
+def _by_group(reports: Sequence[MachineReport]) -> dict[str, list[MachineReport]]:
+    groups: dict[str, list[MachineReport]] = {}
+    ordered = sorted(reports, key=lambda r: (group_label(r).casefold(), r.hostname.casefold()))
+    for report in ordered:
+        groups.setdefault(group_label(report), []).append(report)
+    return groups
+
+
+def _inventory_story(
+    reports: Sequence[MachineReport], client: str, styles: dict[str, ParagraphStyle]
+) -> list[Flowable]:
+    dates = sorted(r.created_at for r in reports)
+    groups = _by_group(reports)
+    story: list[Flowable] = [
+        Spacer(1, 12 * mm),
+        Paragraph("Relatório de inventário", styles["title"]),
+        Paragraph(escape(client), styles["subtitle"]),
+        Spacer(1, 6 * mm),
+        _key_value_table(
+            [
+                ("Cliente", client),
+                ("Data do inventário", format_date(dates[-1], with_time=False)),
+                ("Computadores", str(len(reports))),
+                (
+                    "Grupos",
+                    ", ".join(f"{name} ({len(members)})" for name, members in groups.items()),
+                ),
+            ],
+            styles,
+        ),
+    ]
+    for name, members in groups.items():
+        story += [
+            Paragraph(escape(f"{name} · {len(members)} computador(es)"), styles["h3"]),
+            _inventory_table(members, styles),
+        ]
+
+    story += [PageBreak(), Paragraph("Detalhes por computador", styles["h2"])]
+    for report in sorted(reports, key=lambda r: (group_label(r).casefold(), r.hostname)):
+        subtitle = f"{group_label(report)} · inventário de {format_date(report.created_at)}"
+        story.append(
+            KeepTogether(
+                [
+                    Paragraph(escape(report.hostname), styles["h3"]),
+                    Paragraph(escape(subtitle), styles["muted"]),
+                    Spacer(1, 1.5 * mm),
+                    _specs(report, styles),
+                ]
+            )
+        )
+    return story
+
+
+def _inventory_table(reports: Sequence[MachineReport], styles: dict[str, ParagraphStyle]) -> Table:
+    rows: list[list[Flowable | str]] = [
+        _header_row(["Computador", "Windows", "Memória", "Disco do sistema", "IP", "MAC"], styles)
+    ]
+    for report in reports:
+        system = report.inventory.system
+        disk = system_disk(report) or (
+            report.inventory.disks[0] if report.inventory.disks else None
+        )
+        adapter = primary_adapter(report)
+        windows = " ".join(
+            p for p in (windows_edition(system), windows_feature_version(system)) if p
+        )
+        disk_text = ""
+        if disk is not None:
+            size = f"{format_number(disk.size_gb)} GB" if disk.size_gb else ""
+            disk_text = " · ".join(p for p in (disk_type(disk), size, disk_health(disk)) if p)
+        ip = ""
+        if adapter is not None and adapter.ipv4:
+            ip = f"{', '.join(adapter.ipv4)} ({ip_mode(adapter)})"
+        rows.append(
+            [
+                _cell(report.hostname, styles, bold=True),
+                _cell(windows, styles),
+                _cell(ram_label(report), styles),
+                _cell(disk_text, styles),
+                _cell(ip, styles),
+                _cell(adapter.mac_address if adapter else "", styles),
+            ]
+        )
+    return _table(rows, [0.15, 0.17, 0.17, 0.2, 0.16, 0.15])
 
 
 # --- cover ---------------------------------------------------------------------------
@@ -200,13 +316,14 @@ def _machine_section(report: MachineReport, styles: dict[str, ParagraphStyle]) -
         Paragraph(escape(subtitle), styles["muted"]),
         Paragraph("Configuração", styles["h3"]),
         _specs(report, styles),
-        Paragraph("Achados e recomendações", styles["h3"]),
     ]
-    findings = sorted_findings(report)
-    if findings:
-        story += [_finding_block(f, styles) for f in findings]
-    else:
-        story.append(Paragraph("Nenhum problema relevante encontrado.", styles["body"]))
+    if not is_inventory_only(report):
+        story.append(Paragraph("Achados e recomendações", styles["h3"]))
+        findings = sorted_findings(report)
+        if findings:
+            story += [_finding_block(f, styles) for f in findings]
+        else:
+            story.append(Paragraph("Nenhum problema relevante encontrado.", styles["body"]))
 
     if report.health:
         story += [Paragraph("Verificações de saúde", styles["h3"]), _health_table(report, styles)]

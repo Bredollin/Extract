@@ -11,12 +11,14 @@ from extract.gui.icons import IconLabel
 from extract.gui.theme import Space
 from extract.gui.widgets.card import Card
 from extract.gui.widgets.common import hbox, label, scroll_area
+from extract.reports.summary import disk_health
 
 Rows = list[tuple[str, str]]
 
 
-def hardware_view(inventory: Inventory) -> QWidget:
-    sections = [
+def hardware_sections(inventory: Inventory) -> list[tuple[str, str, Rows]]:
+    """(title, icon, rows) of each card; the per-machine Excel export uses the same rows."""
+    return [
         ("Sistema", "monitor", _system_rows(inventory)),
         ("Processador", "cpu", _cpu_rows(inventory)),
         ("Memória", "memory", _memory_rows(inventory)),
@@ -24,6 +26,10 @@ def hardware_view(inventory: Inventory) -> QWidget:
         ("Armazenamento", "disk", _storage_rows(inventory)),
         ("Rede", "network", _network_rows(inventory)),
     ]
+
+
+def hardware_view(inventory: Inventory) -> QWidget:
+    sections = hardware_sections(inventory)
     content = QWidget()
     grid = QGridLayout()
     grid.setContentsMargins(0, Space.L, Space.S, Space.L)
@@ -121,7 +127,7 @@ def _storage_rows(inv: Inventory) -> Rows:
     rows: Rows = []
     for disk in inv.disks:
         kind = " ".join(p for p in (disk.media_type, disk.bus_type) if p and p != "Unknown")
-        parts = [disk.model, kind, formatting.size_gb(disk.size_gb)]
+        parts = [disk.model, kind, formatting.size_gb(disk.size_gb), disk_health(disk)]
         if disk.is_system_disk:
             parts.append("disco do sistema")
         rows.append(("Disco", " · ".join(p for p in parts if p)))
@@ -135,6 +141,8 @@ def _network_rows(inv: Inventory) -> Rows:
     rows: Rows = []
     for adapter in inv.network:
         details = [", ".join(adapter.ipv4), "DHCP" if adapter.dhcp else "IP fixo"]
+        if adapter.mac_address:
+            details.append(f"MAC {adapter.mac_address}")
         if adapter.link_speed_mbps:
             details.append(f"{formatting.number(adapter.link_speed_mbps)} Mbps")
         rows.append((adapter.name, " · ".join(p for p in details if p)))
