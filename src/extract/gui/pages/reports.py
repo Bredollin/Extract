@@ -16,9 +16,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from extract.core.models import MachineReport, Severity
+from extract.core.models import MachineReport
 from extract.gui import exporting, formatting, settings
-from extract.gui.pages.results.summary import severity_count
 from extract.gui.theme import SEVERITY_TONES, Space
 from extract.gui.widgets.card import Card
 from extract.gui.widgets.common import button, hbox, label, vbox
@@ -26,9 +25,10 @@ from extract.gui.widgets.empty_state import EmptyState
 from extract.gui.widgets.page_header import PageHeader
 from extract.gui.widgets.status_chip import StatusChip
 from extract.gui.widgets.verdict_banner import find_verdict
+from extract.reports.summary import group_label, windows_edition, windows_feature_version
 
 CHIP_TEXT_WIDTH = 240
-COLUMNS = ("Máquina", "Modelo", "Diagnóstico", "Críticos", "Atenção", "Situação")
+COLUMNS = ("Máquina", "Grupo", "Modelo", "Windows", "Inventário", "Situação")
 
 
 def client_folders(root: Path) -> list[Path]:
@@ -179,14 +179,15 @@ class ReportsPage(QWidget):
 
     def _fill_row(self, row: int, report: MachineReport) -> None:
         system = report.inventory.system
-        critical = severity_count(report, Severity.CRITICAL)
-        warning = severity_count(report, Severity.WARNING)
+        windows = " ".join(
+            p for p in (windows_edition(system), windows_feature_version(system)) if p
+        )
         values = (
             report.hostname,
+            group_label(report),
             " ".join(p for p in (system.manufacturer, system.model) if p),
+            windows,
             formatting.date_time(report.created_at),
-            str(critical),
-            str(warning),
         )
         for column, value in enumerate(values):
             item = QTableWidgetItem(value)

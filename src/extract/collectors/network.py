@@ -11,8 +11,8 @@ from extract.core.powershell import PowerShellRunner, safe_query
 SCRIPT = """
 [pscustomobject]@{
     Configs = @(Get-CimInstance Win32_NetworkAdapterConfiguration -Filter 'IPEnabled=True' |
-        Select-Object InterfaceIndex, Description, MACAddress, IPAddress, DefaultIPGateway,
-        DNSServerSearchOrder, DHCPEnabled)
+        Select-Object InterfaceIndex, Description, MACAddress, IPAddress, IPSubnet,
+        DefaultIPGateway, DNSServerSearchOrder, DHCPEnabled)
     Adapters = @(Get-NetAdapter -ErrorAction SilentlyContinue |
         Select-Object InterfaceIndex, Name, InterfaceDescription, Status, Speed, MacAddress)
 }
@@ -44,6 +44,7 @@ def _adapter(config: dict, adapter: dict) -> NetworkAdapter:
         name=name,
         mac_address=mac.replace("-", ":").upper(),
         ipv4=_ipv4(config.get("IPAddress")),
+        subnet_masks=[m for m in _ipv4(config.get("IPSubnet")) if "." in m],
         gateway=_ipv4(config.get("DefaultIPGateway")),
         dns_servers=[text(s) for s in as_list(config.get("DNSServerSearchOrder")) if text(s)],
         dhcp=to_bool(config.get("DHCPEnabled")),

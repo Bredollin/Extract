@@ -5,6 +5,27 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-11-04
+
+### Changed
+
+- The app runs only the quick inventory (a few seconds); health checks and benchmarks stay
+  available from `extract-cli scan`.
+- Excel workbook rebuilt around the inventory: "Inventário" (one row per machine with Windows
+  edition, feature version such as 23H2/24H2 and build, memory total, modules in use and slots,
+  system disk size and health, IP, mask, gateway, DHCP or fixed address, MAC), "Por grupo"
+  (totals per department), and "Memória", "Discos" and "Rede" with one row per module, disk
+  and adapter. "Achados" and "Desempenho" only appear when the reports hold that data.
+- Relatórios page lists the group and Windows version of each machine.
+
+### Added
+
+- Group (department) per machine, chosen on the Diagnóstico page and remembered between
+  machines; `extract-cli scan --group` and `--inventory-only`.
+- Disk inventory now holds the SMART-like counters (temperature, wear, power-on hours,
+  uncorrected errors; they need the exe run as administrator) and network adapters hold
+  the subnet mask.
+
 ## [2.0.0] - 2026-10-19
 
 Full rewrite. Extract now explains *why* a machine is slow instead of only listing its

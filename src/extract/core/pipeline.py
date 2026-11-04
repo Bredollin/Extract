@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 @dataclass
 class ScanOptions:
     client: str = ""
+    group: str = ""
     health: bool = True
     benchmarks: set[Category] = field(
         default_factory=lambda: {Category.CPU, Category.MEMORY, Category.STORAGE}
@@ -44,7 +45,7 @@ def run_scan(
     """
     ps = ps or PowerShell()
     cancel = cancel or CancelToken()
-    report = MachineReport(client=options.client, tool_version=__version__)
+    report = MachineReport(client=options.client, group=options.group, tool_version=__version__)
 
     log.info("Collecting hardware inventory")
     report.inventory = collect_inventory(ps, sub_progress(progress, 0.0, 0.15), cancel)

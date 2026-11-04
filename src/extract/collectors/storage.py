@@ -9,6 +9,8 @@ from extract.core.models import DiskInfo, VolumeInfo
 from extract.core.powershell import PowerShellRunner, safe_query
 
 # Get-PhysicalDisk (MSFT_PhysicalDisk) is the only source that tells SSD from HDD;
+# Get-StorageReliabilityCounter adds the SMART-like counters (temperature, wear, power-on
+# hours, uncorrected errors); it needs admin rights and returns nothing without them.
 # Win32_DiskDrive is kept as a fallback for machines where the Storage module fails.
 # The system disk comes from Get-Partition, or from the WMI associations
 # LogicalDisk -> DiskPartition -> DiskDrive when Get-Partition is unavailable.
@@ -26,8 +28,25 @@ if ($null -eq $sysDisk) {
 }
 $physical = @()
 try {
-    $physical = @(Get-PhysicalDisk -ErrorAction Stop | Select-Object DeviceId, FriendlyName,
-        Model, SerialNumber, MediaType, BusType, HealthStatus, Size)
+    $physical = @(Get-PhysicalDisk -ErrorAction Stop | ForEach-Object {
+        $rel = $null
+        try { $rel = $_ | Get-StorageReliabilityCounter -ErrorAction Stop } catch { }
+        [pscustomobject]@{
+            DeviceId = $_.DeviceId
+            FriendlyName = $_.FriendlyName
+            Model = $_.Model
+            SerialNumber = $_.SerialNumber
+            MediaType = $_.MediaType
+            BusType = $_.BusType
+            HealthStatus = $_.HealthStatus
+            Size = $_.Size
+            Temperature = $rel.Temperature
+            Wear = $rel.Wear
+            PowerOnHours = $rel.PowerOnHours
+            ReadErrorsUncorrected = $rel.ReadErrorsUncorrected
+            WriteErrorsUncorrected = $rel.WriteErrorsUncorrected
+        }
+    })
 } catch { }
 [pscustomobject]@{
     SystemDiskNumber = $sysDisk
@@ -99,7 +118,27 @@ def _from_physical(row: dict, drives: dict[int, dict], system_index: int) -> Dis
         serial_number=clean(row.get("SerialNumber")) or clean(drive.get("SerialNumber")),
         health_status=_enum(row.get("HealthStatus"), _HEALTH, ""),
         is_system_disk=number >= 0 and number == system_index,
+        # Drives that do not report temperature return 0.
+        temperature_c=_optional_int(row.get("Temperature")) or None,
+        wear_percent=_optional_int(row.get("Wear")),
+        power_on_hours=_optional_int(row.get("PowerOnHours")),
+        uncorrected_errors=_uncorrected(row),
     )
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None or value == "" or isinstance(value, bool):
+        return None
+    number = to_int(value, -1)
+    return number if number >= 0 else None
+
+
+def _uncorrected(row: dict) -> int | None:
+    values = [
+        _optional_int(row.get(k)) for k in ("ReadErrorsUncorrected", "WriteErrorsUncorrected")
+    ]
+    known = [v for v in values if v is not None]
+    return sum(known) if known else None
 
 
 def _from_drive(index: int, row: dict, system_index: int) -> DiskInfo:

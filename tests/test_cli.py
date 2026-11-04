@@ -108,7 +108,7 @@ def test_export_defaults_to_both_files(tmp_path):
     save_report(_machine("ESCRITORIO", slow_disk=False), tmp_path)
     assert cli.main(["export", str(tmp_path)]) == cli.EXIT_OK
     excel = tmp_path / f"relatorio-{tmp_path.name}.xlsx"
-    assert load_workbook(excel)["Resumo"].max_row == 3
+    assert load_workbook(excel)["Inventário"].max_row == 3
     assert (tmp_path / f"relatorio-{tmp_path.name}.pdf").read_bytes().startswith(b"%PDF")
 
 

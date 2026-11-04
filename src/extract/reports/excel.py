@@ -1,7 +1,14 @@
-"""Excel export: one workbook consolidating every machine of a client.
+"""Excel export: one workbook with the inventory of every machine of a client.
 
-Sheets: "Resumo" (one row per machine), "Achados", "Desempenho" and "Inventário". Each
-sheet is a plain table with a styled header, frozen header row and autofilter, so the
+Sheets:
+- "Inventário": one row per machine, grouped by department, with the fields a technician
+  asks for first (Windows version, memory and modules, system disk and its health, IP,
+  DHCP or fixed address, MAC);
+- "Por grupo": machine count and the main totals per department, for presenting;
+- "Memória", "Discos" and "Rede": one row per module, disk and network adapter;
+- "Achados" and "Desempenho": only when the reports hold analysis or benchmark data.
+
+Each sheet is a plain table with a styled header, frozen header row and autofilter, so the
 technician can sort and filter without reformatting anything.
 """
 
@@ -18,16 +25,21 @@ from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.worksheet import Worksheet
 
-from extract.core.models import MachineReport, Severity
+from extract.core.models import DiskInfo, MachineReport, Severity, Status
 from extract.reports.summary import (
     SEVERITY_COLORS,
+    STATUS_COLORS,
+    disk_health,
     disk_type,
-    inventory_rows,
-    os_label,
-    severity_counts,
+    group_label,
+    health_label,
+    ip_mode,
+    modules_label,
+    primary_adapter,
     sorted_findings,
     system_disk,
-    top_finding,
+    windows_edition,
+    windows_feature_version,
 )
 
 log = logging.getLogger(__name__)
@@ -40,22 +52,89 @@ _TOP = Alignment(vertical="top")
 _MAX_WIDTH = 60
 
 # Column headers per sheet; columns listed in _WRAPPED hold sentences and wrap.
-_SUMMARY_COLUMNS = [
+_INVENTORY_COLUMNS = [
+    "Grupo",
     "Computador",
-    "Cliente",
-    "Data da análise",
-    "Sistema operacional",
+    "Usuário",
+    "Fabricante",
+    "Modelo",
+    "Nº de série",
+    "Windows",
+    "Versão",
+    "Build",
     "Processador",
-    "RAM total (GB)",
-    "Tipo de RAM",
-    "Slots (usados/total)",
+    "Memória total (GB)",
+    "Tipo de memória",
+    "Pentes instalados",
+    "Slots (em uso/total)",
+    "Pentes",
     "Disco do sistema",
-    "Principal achado (gravidade)",
-    "Principal achado",
-    "Críticos",
-    "Atenção",
+    "Tipo do disco",
+    "Tamanho do disco (GB)",
+    "Saúde do disco",
+    "Temperatura do disco (°C)",
+    "Desgaste do disco (%)",
+    "Livre em C: (GB)",
+    "IP",
+    "Máscara",
+    "Gateway",
+    "DHCP ou fixo",
+    "MAC",
+    "Placa de rede",
+    "Data do inventário",
+]
+_GROUP_COLUMNS = [
+    "Grupo",
+    "Máquinas",
+    "Windows 11",
+    "Windows 10",
+    "Outro Windows",
+    "Memória média (GB)",
+    "Até 4 GB de memória",
+    "Disco SSD",
+    "Disco HDD",
+    "Discos com alerta",
+    "IP fixo",
+    "DHCP",
+]
+_MEMORY_COLUMNS = [
+    "Grupo",
+    "Computador",
+    "Slot",
+    "Capacidade (GB)",
+    "Tipo",
+    "Velocidade (MT/s)",
+    "Fabricante",
+    "Modelo do pente",
+]
+_DISK_COLUMNS = [
+    "Grupo",
+    "Computador",
+    "Disco",
+    "Disco do sistema",
+    "Tipo",
+    "Tamanho (GB)",
+    "Saúde",
+    "Temperatura (°C)",
+    "Desgaste (%)",
+    "Horas ligado",
+    "Erros não corrigidos",
+    "Nº de série",
+]
+_NETWORK_COLUMNS = [
+    "Grupo",
+    "Computador",
+    "Placa de rede",
+    "MAC",
+    "IP",
+    "Máscara",
+    "Gateway",
+    "DNS",
+    "DHCP ou fixo",
+    "Velocidade (Mbps)",
 ]
 _FINDING_COLUMNS = [
+    "Grupo",
     "Computador",
     "Gravidade",
     "Área",
@@ -64,6 +143,7 @@ _FINDING_COLUMNS = [
     "Recomendação",
 ]
 _BENCHMARK_COLUMNS = [
+    "Grupo",
     "Computador",
     "Teste",
     "Área",
@@ -73,28 +153,44 @@ _BENCHMARK_COLUMNS = [
     "Duração (s)",
     "Erro",
 ]
-_INVENTORY_COLUMNS = ["Computador", "Componente", "Modelo / nome", "Detalhes"]
-_WRAPPED = {"Detalhes", "Recomendação", "Principal achado", "Erro"}
+_WRAPPED = {"Detalhes", "Recomendação", "Erro"}
+
+# Disk health labels colored like the health statuses.
+_HEALTH_STATUS = {"Saudável": Status.OK, "Atenção": Status.WARNING, "Com falha": Status.CRITICAL}
 
 
 def export_excel(reports: Sequence[MachineReport], path: Path) -> Path:
     """Write the consolidated workbook to `path` and return it."""
+    reports = sorted(reports, key=lambda r: (group_label(r).casefold(), r.hostname.casefold()))
     workbook = Workbook()
-    summary = workbook.active
-    summary.title = "Resumo"
-    _fill(summary, _SUMMARY_COLUMNS, [_summary_row(r) for r in reports])
-    _color_severity(summary, _SUMMARY_COLUMNS.index("Principal achado (gravidade)"))
+    inventory = workbook.active
+    inventory.title = "Inventário"
+    _fill(inventory, _INVENTORY_COLUMNS, [_inventory_row(r) for r in reports])
+    _color_health(inventory, _INVENTORY_COLUMNS.index("Saúde do disco"))
 
-    findings = workbook.create_sheet("Achados")
-    _fill(findings, _FINDING_COLUMNS, [row for r in reports for row in _finding_rows(r)])
-    _color_severity(findings, _FINDING_COLUMNS.index("Gravidade"))
+    groups = workbook.create_sheet("Por grupo")
+    _fill(groups, _GROUP_COLUMNS, _group_rows(reports))
 
-    benchmarks = workbook.create_sheet("Desempenho")
-    _fill(benchmarks, _BENCHMARK_COLUMNS, [row for r in reports for row in _benchmark_rows(r)])
+    memory = workbook.create_sheet("Memória")
+    _fill(memory, _MEMORY_COLUMNS, [row for r in reports for row in _memory_rows(r)])
 
-    inventory = workbook.create_sheet("Inventário")
-    rows = [(r.hostname, *row) for r in reports for row in inventory_rows(r)]
-    _fill(inventory, _INVENTORY_COLUMNS, rows)
+    disks = workbook.create_sheet("Discos")
+    _fill(disks, _DISK_COLUMNS, [row for r in reports for row in _disk_rows(r)])
+    _color_health(disks, _DISK_COLUMNS.index("Saúde"))
+
+    network = workbook.create_sheet("Rede")
+    _fill(network, _NETWORK_COLUMNS, [row for r in reports for row in _network_rows(r)])
+
+    finding_rows = [row for r in reports for row in _finding_rows(r)]
+    if finding_rows:
+        findings = workbook.create_sheet("Achados")
+        _fill(findings, _FINDING_COLUMNS, finding_rows)
+        _color_severity(findings, _FINDING_COLUMNS.index("Gravidade"))
+
+    benchmark_rows = [row for r in reports for row in _benchmark_rows(r)]
+    if benchmark_rows:
+        benchmarks = workbook.create_sheet("Desempenho")
+        _fill(benchmarks, _BENCHMARK_COLUMNS, benchmark_rows)
 
     path.parent.mkdir(parents=True, exist_ok=True)
     workbook.save(path)
@@ -102,30 +198,138 @@ def export_excel(reports: Sequence[MachineReport], path: Path) -> Path:
     return path
 
 
-def _summary_row(report: MachineReport) -> list[Any]:
-    memory = report.inventory.memory
-    counts = severity_counts(report)
-    top = top_finding(report)
+def _inventory_row(report: MachineReport) -> list[Any]:
+    inv = report.inventory
+    system, memory = inv.system, inv.memory
+    disk = system_disk(report) or (inv.disks[0] if inv.disks else None)
+    adapter = primary_adapter(report)
+    volume = next((v for v in inv.volumes if v.letter.upper() == "C:"), None)
     return [
+        group_label(report),
         report.hostname,
-        report.client,
-        _parse_date(report.created_at),
-        os_label(report.inventory.system),
-        report.inventory.cpu.name,
+        system.user,
+        system.manufacturer,
+        system.model,
+        system.serial_number,
+        windows_edition(system),
+        windows_feature_version(system),
+        system.os_build,
+        inv.cpu.name,
         memory.total_gb or None,
         memory.memory_type,
+        memory.used_slots or None,
         f"{memory.used_slots}/{memory.total_slots}" if memory.total_slots else "",
-        disk_type(system_disk(report)),
-        top.severity.label if top else "",
-        top.title if top else "Nenhum problema encontrado",
-        counts[Severity.CRITICAL],
-        counts[Severity.WARNING],
+        modules_label(report),
+        disk.model if disk else "",
+        disk_type(disk),
+        disk.size_gb if disk and disk.size_gb else None,
+        disk_health(disk),
+        disk.temperature_c if disk else None,
+        disk.wear_percent if disk else None,
+        volume.free_gb if volume else None,
+        ", ".join(adapter.ipv4) if adapter else "",
+        ", ".join(adapter.subnet_masks) if adapter else "",
+        ", ".join(adapter.gateway) if adapter else "",
+        ip_mode(adapter),
+        adapter.mac_address if adapter else "",
+        adapter.name if adapter else "",
+        _parse_date(report.created_at),
+    ]
+
+
+def _group_rows(reports: Sequence[MachineReport]) -> list[list[Any]]:
+    by_group: dict[str, list[MachineReport]] = {}
+    for report in reports:
+        by_group.setdefault(group_label(report), []).append(report)
+    rows = []
+    for group, members in by_group.items():
+        names = [windows_edition(r.inventory.system) for r in members]
+        memory = [r.inventory.memory.total_gb for r in members if r.inventory.memory.total_gb]
+        disks = [system_disk(r) for r in members]
+        adapters = [primary_adapter(r) for r in members]
+        win11 = sum("Windows 11" in n for n in names)
+        win10 = sum("Windows 10" in n for n in names)
+        rows.append(
+            [
+                group,
+                len(members),
+                win11,
+                win10,
+                len(members) - win11 - win10,
+                round(sum(memory) / len(memory), 1) if memory else None,
+                sum(gb <= 4 for gb in memory),
+                sum(d is not None and d.media_type == "SSD" for d in disks),
+                sum(d is not None and d.media_type == "HDD" for d in disks),
+                sum(d is not None and _disk_alert(d) for d in disks),
+                sum(a is not None and not a.dhcp for a in adapters),
+                sum(a is not None and a.dhcp for a in adapters),
+            ]
+        )
+    return rows
+
+
+def _disk_alert(disk: DiskInfo) -> bool:
+    return disk_health(disk) not in {"Saudável", "Indisponível"}
+
+
+def _memory_rows(report: MachineReport) -> list[list[Any]]:
+    return [
+        [
+            group_label(report),
+            report.hostname,
+            m.slot,
+            m.capacity_gb or None,
+            m.memory_type,
+            (m.configured_speed_mhz or m.speed_mhz) or None,
+            m.manufacturer,
+            m.part_number,
+        ]
+        for m in report.inventory.memory.modules
+    ]
+
+
+def _disk_rows(report: MachineReport) -> list[list[Any]]:
+    return [
+        [
+            group_label(report),
+            report.hostname,
+            d.model,
+            "Sim" if d.is_system_disk else "Não",
+            disk_type(d),
+            d.size_gb or None,
+            health_label(d.health_status) or "Indisponível",
+            d.temperature_c,
+            d.wear_percent,
+            d.power_on_hours,
+            d.uncorrected_errors,
+            d.serial_number,
+        ]
+        for d in report.inventory.disks
+    ]
+
+
+def _network_rows(report: MachineReport) -> list[list[Any]]:
+    return [
+        [
+            group_label(report),
+            report.hostname,
+            a.name,
+            a.mac_address,
+            ", ".join(a.ipv4),
+            ", ".join(a.subnet_masks),
+            ", ".join(a.gateway),
+            ", ".join(a.dns_servers),
+            ip_mode(a),
+            a.link_speed_mbps or None,
+        ]
+        for a in report.inventory.network
     ]
 
 
 def _finding_rows(report: MachineReport) -> list[list[Any]]:
     return [
         [
+            group_label(report),
             report.hostname,
             f.severity.label,
             f.category.label,
@@ -143,10 +347,23 @@ def _benchmark_rows(report: MachineReport) -> list[list[Any]]:
         duration = round(bench.duration_s, 1) if bench.duration_s else None
         if not bench.metrics:
             label = bench.category.label
-            rows.append([report.hostname, bench.title, label, "", None, "", duration, bench.error])
+            rows.append(
+                [
+                    group_label(report),
+                    report.hostname,
+                    bench.title,
+                    label,
+                    "",
+                    None,
+                    "",
+                    duration,
+                    bench.error,
+                ]
+            )
         for metric in bench.metrics.values():
             rows.append(
                 [
+                    group_label(report),
                     report.hostname,
                     bench.title,
                     bench.category.label,
@@ -194,7 +411,7 @@ def _fill(sheet: Worksheet, headers: list[str], rows: Sequence[Sequence[Any]]) -
         sheet.column_dimensions[get_column_letter(index)].width = _width(sheet, index, header)
 
     sheet.row_dimensions[1].height = 30
-    sheet.freeze_panes = "B2"
+    sheet.freeze_panes = "C2"
     sheet.auto_filter.ref = sheet.dimensions
 
 
@@ -213,5 +430,20 @@ def _color_severity(sheet: Worksheet, column_index: int) -> None:
     for (cell,) in sheet.iter_rows(min_row=2, min_col=column_index + 1, max_col=column_index + 1):
         if cell.value in colors:
             text, background = colors[cell.value]
+            cell.fill = PatternFill("solid", fgColor=background)
+            cell.font = Font(bold=True, color=text)
+
+
+def _color_health(sheet: Worksheet, column_index: int) -> None:
+    column = column_index + 1
+    for (cell,) in sheet.iter_rows(min_row=2, min_col=column, max_col=column):
+        value = str(cell.value or "")
+        status = _HEALTH_STATUS.get(value.split(" (")[0])
+        if value and status is None:
+            status = Status.UNKNOWN
+        elif status is Status.OK and "(" in value:
+            status = Status.WARNING  # healthy for Windows, but SMART counters show a problem
+        if status is not None:
+            text, background = STATUS_COLORS[status]
             cell.fill = PatternFill("solid", fgColor=background)
             cell.font = Font(bold=True, color=text)

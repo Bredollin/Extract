@@ -68,7 +68,13 @@ class ScanProgressCard(Card):
         """Show every step as pending for the chosen options."""
         self._enabled = {HEALTH.key: health, BENCHMARKS.key: bool(benchmarks)}
         titles = {BENCHMARKS.key: scan_steps.benchmarks_title(benchmarks)}
-        self.steps.set_steps([(s.key, titles.get(s.key, s.title)) for s in ALL_STEPS])
+        self.steps.set_steps(
+            [
+                (s.key, titles.get(s.key, s.title))
+                for s in ALL_STEPS
+                if self._enabled.get(s.key, True)
+            ]
+        )
         self._apply_states(idle_states(self._enabled))
         self._set_status(0.0, IDLE_MESSAGE, "")
 

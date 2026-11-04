@@ -178,7 +178,9 @@ class StepsView(QWidget):
             self._layout.addWidget(row)
 
     def set_state(self, key: str, state: StepState, detail: str = "") -> None:
-        self.rows[key].set_state(state, detail)
+        row = self.rows.get(key)
+        if row is not None:  # steps left out of the list (not selected) are ignored
+            row.set_state(state, detail)
 
     def state(self, key: str) -> StepState:
         return self.rows[key].state

@@ -178,6 +178,11 @@ def test_storage():
     assert not hdd.is_system_disk
     assert (nvme.media_type, nvme.bus_type, nvme.health_status) == ("SSD", "NVMe", "Warning")
     assert nvme.is_system_disk
+    assert (nvme.temperature_c, nvme.wear_percent, nvme.power_on_hours) == (41, 3, 1234)
+    assert nvme.uncorrected_errors == 0
+    # Without counters (no admin rights, or a drive that reports 0 °C) the values stay unknown.
+    assert (hdd.temperature_c, hdd.wear_percent, hdd.power_on_hours) == (None, None, None)
+    assert hdd.uncorrected_errors is None
     assert [v.letter for v in volumes] == ["C:", "D:"]
     assert volumes[0].free_gb == 40.0
     assert volumes[0].size_gb == 465.2
@@ -221,12 +226,14 @@ def test_network():
     ethernet, wifi = collect_network(_ps("Get-NetAdapter", "network"))
     assert ethernet.name == "Ethernet (Realtek PCIe GbE Family Controller)"
     assert ethernet.ipv4 == ["192.168.0.25"]
+    assert ethernet.subnet_masks == ["255.255.255.0"]
     assert ethernet.gateway == ["192.168.0.1"]
     assert ethernet.dns_servers == ["192.168.0.1", "8.8.8.8"]
     assert ethernet.dhcp is True
     assert ethernet.link_speed_mbps == 1000
     assert ethernet.mac_address == "00:11:22:33:44:55"
     assert wifi.ipv4 == ["10.0.0.8"]
+    assert wifi.subnet_masks == ["255.0.0.0"]
     assert wifi.gateway == []
     assert wifi.dhcp is False
     assert wifi.link_speed_mbps == 866

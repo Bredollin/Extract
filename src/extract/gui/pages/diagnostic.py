@@ -8,7 +8,7 @@ from pathlib import Path
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QWidget
 
-from extract.core.models import Category, MachineReport
+from extract.core.models import MachineReport
 from extract.gui.pages.scan_progress import ScanProgressCard
 from extract.gui.pages.scan_setup import ScanSetupCard
 from extract.gui.theme import Space
@@ -36,7 +36,7 @@ class DiagnosticPage(QWidget):
         column.addWidget(
             PageHeader(
                 "Diagnóstico",
-                "Inventário, saúde e desempenho da máquina, com a causa provável da lentidão.",
+                "Inventário rápido da máquina, salvo por cliente e grupo.",
             )
         )
         row = hbox(Space.XL)
@@ -51,20 +51,11 @@ class DiagnosticPage(QWidget):
         self.setLayout(column)
 
         log_handler.emitter.message.connect(self.progress.log.append)
-        for toggle in (
-            self.setup.health,
-            self.setup.benchmarks,
-            *self.setup.bench_toggles.values(),
-        ):
-            toggle.toggled.connect(self._preview_steps)
+        self.progress.reset(False, set())
 
     @property
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.isRunning()
-
-    def _preview_steps(self) -> None:
-        if not self.is_running:
-            self.progress.reset(self.setup.health.isChecked(), self.setup.benchmark_categories)
 
     def start_scan(self) -> None:
         if self.is_running:
@@ -72,7 +63,10 @@ class DiagnosticPage(QWidget):
         options = self.setup.build_options()
         folder = self.setup.folder
         self.setup.remember_client()
-        log.info("Starting scan for client %r into %s", options.client, folder)
+        self.setup.remember_group()
+        log.info(
+            "Starting scan for client %r, group %r into %s", options.client, options.group, folder
+        )
         self.setup.set_running(True)
         self.progress.start(options.health, set(options.benchmarks))
         self._worker = ScanWorker(options, folder, self.scan_function)
@@ -100,6 +94,7 @@ class DiagnosticPage(QWidget):
         self.progress.finish(f"Concluído. Relatório salvo em {path.name}")
         self._done()
         self.setup.refresh_clients()
+        self.setup.refresh_groups()
         self.report_ready.emit(report, path)
 
     def _on_failed(self, message: str) -> None:
@@ -116,9 +111,8 @@ class DiagnosticPage(QWidget):
 
     def show_preview(self, fraction: float, message: str, elapsed_s: float, log_lines: list[str]):
         """Freeze the page in a mid-scan look (for `--demo` screenshots); nothing runs."""
-        categories = {Category.CPU, Category.MEMORY, Category.STORAGE}
         self.setup.set_running(True)
-        self.progress.start(True, categories)
+        self.progress.start(False, set())
         self.progress.update_progress(fraction, message)
         self.progress.show_elapsed(elapsed_s)
         for line in log_lines:

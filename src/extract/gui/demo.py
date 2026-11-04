@@ -35,7 +35,7 @@ from extract.core.models import (
 
 DEMO_CLIENT = "Clinica Exemplo"
 DEMO_LOG = [
-    "10:41:58  INFO     Starting scan for client 'Clinica Exemplo'",
+    "10:41:58  INFO     Starting scan for client 'Clinica Exemplo', group 'Recepção'",
     "10:41:58  INFO     Collecting hardware inventory",
     "10:42:06  INFO     Running health checks",
     "10:42:21  INFO     Sampling disk activity for 5 s",
@@ -100,6 +100,9 @@ def _inventory() -> Inventory:
                 bus_type="SATA",
                 health_status="Healthy",
                 is_system_disk=True,
+                temperature_c=38,
+                power_on_hours=31250,
+                uncorrected_errors=0,
             )
         ],
         volumes=[
@@ -110,6 +113,7 @@ def _inventory() -> Inventory:
                 name="Intel Ethernet I219-V",
                 mac_address="00-00-5E-00-53-01",
                 ipv4=["192.168.0.25"],
+                subnet_masks=["255.255.255.0"],
                 gateway=["192.168.0.1"],
                 dns_servers=["192.168.0.1"],
                 dhcp=True,
@@ -312,6 +316,7 @@ def build_demo_report() -> MachineReport:
         benchmarks=_benchmarks(),
         findings=_findings(),
         client=DEMO_CLIENT,
+        group="Recepção",
         created_at="2026-10-19T10:44:12-03:00",
         tool_version=__version__,
     )
@@ -329,6 +334,7 @@ def build_demo_fleet() -> list[MachineReport]:
         serial_number="DEMO456",
     )
     healthy.created_at = "2026-10-19T11:20:40-03:00"
+    healthy.group = "Financeiro"
     healthy.findings = [
         Finding(
             "verdict.ok", Category.SYSTEM, Severity.INFO, "Máquina saudável",
@@ -342,6 +348,7 @@ def build_demo_fleet() -> list[MachineReport]:
         model="ThinkCentre M720q", serial_number="DEMO789",
     )  # fmt: skip
     software.created_at = "2026-10-19T09:05:13-03:00"
+    software.group = "Diretoria"
     software.findings = [
         Finding(
             "verdict.software", Category.SYSTEM, Severity.WARNING,
@@ -372,5 +379,5 @@ def load_into(window) -> None:
 
 
 def show_scan_preview(window) -> None:
-    """Freeze the Diagnóstico page in a mid-scan look (benchmarks running)."""
-    window.diagnostic.show_preview(0.71, "Teste de disco: leitura sequencial", 95, DEMO_LOG)
+    """Freeze the Diagnóstico page in a mid-scan look (inventory running)."""
+    window.diagnostic.show_preview(0.08, "Lendo discos e partições", 4, DEMO_LOG[:2])

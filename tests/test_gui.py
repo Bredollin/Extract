@@ -14,7 +14,7 @@ pytest.importorskip("PySide6.QtWidgets", exc_type=ImportError)
 
 from PySide6.QtWidgets import QApplication
 
-from extract.core.models import Category, MachineReport
+from extract.core.models import MachineReport
 from extract.core.progress import CancelToken
 from extract.gui import demo, formatting, settings, theme
 from extract.gui.scan_steps import idle_states, step_states
@@ -272,13 +272,24 @@ def test_duration_and_units():
     assert formatting.with_unit(642, "pts") == "642 pts"
 
 
-def test_benchmark_categories_follow_toggles(window):
+def test_scan_is_quick_inventory_with_group(window):
     setup = window.diagnostic.setup
-    setup.bench_toggles[Category.STORAGE].setChecked(False)
-    assert setup.benchmark_categories == {Category.CPU, Category.MEMORY}
-    setup.benchmarks.setChecked(False)
-    assert setup.benchmark_categories == set()
-    assert setup.build_options().benchmarks == set()
+    setup.group_combo.setEditText("  Financeiro   2 ")
+    options = setup.build_options()
+    assert options.group == "Financeiro 2"
+    assert options.health is False
+    assert options.benchmarks == set()
+    assert setup.group_combo.findText("Recepção") >= 0
+
+
+def test_new_group_is_remembered(window, portable_dirs):
+    setup = window.diagnostic.setup
+    setup.group_combo.setEditText("Estoque")
+    setup.remember_group()
+    setup.group_combo.setEditText("")
+    setup.refresh_groups()
+    assert setup.group_combo.findText("Estoque") >= 0
+    assert setup.group_combo.currentText() == "Estoque"
 
 
 def test_icon_ico_has_multiple_sizes():
