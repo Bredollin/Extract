@@ -1,4 +1,4 @@
-"""Left card of the Diagnóstico page: client folder and the machine's group."""
+"""Left card of the Diagnóstico page: client folder and the machine's group and what to run."""
 
 from __future__ import annotations
 
@@ -7,10 +7,12 @@ from pathlib import Path
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QComboBox, QFileDialog, QWidget
 
+from extract.core.models import Category
 from extract.gui import settings
 from extract.gui.theme import Space
 from extract.gui.widgets.card import Card
-from extract.gui.widgets.common import ElidedLabel, button, divider, hbox, label
+from extract.gui.widgets.common import ElidedLabel, button, divider, hbox, label, vbox
+from extract.gui.widgets.toggle import ToggleSwitch
 
 LAST_CLIENT_KEY = "scan/last_client"
 LAST_GROUP_KEY = "scan/last_group"
@@ -118,15 +120,37 @@ class ScanSetupCard(Card):
         hint = label("Usado para separar as máquinas na planilha.", role="caption")
         self.body.addWidget(hint)
         self.body.addSpacing(Space.S)
-        self.body.addWidget(label("Inventário rápido", role="strong"))
-        contents = label(
-            "Windows e versão, memória e pentes, discos com saúde (SMART), "
-            "IP, DHCP ou fixo e MAC. Leva poucos segundos. Temperatura e desgaste do "
-            "disco só aparecem abrindo como administrador.",
-            role="caption",
+        self.body.addWidget(label("O que executar", role="strong"))
+        self.inventory = self._option(
+            "Inventário rápido",
+            "Windows e versão, memória e pentes, discos e saúde, IP, DHCP ou fixo e MAC. "
+            "Poucos segundos.",
+            True,
         )
-        contents.setWordWrap(True)
-        self.body.addWidget(contents)
+        self.inventory.set_locked(True)
+        self.health = self._option(
+            "Saúde do sistema", "Disco, memória, eventos, inicialização", False
+        )
+        self.benchmarks = self._option(
+            "Testes de desempenho", "Mede a velocidade real das peças", False
+        )
+        sub = hbox(Space.L, (44, 0, 0, 0))
+        self.bench_toggles: dict[Category, ToggleSwitch] = {}
+        for category, text in (
+            (Category.CPU, "CPU"),
+            (Category.MEMORY, "Memória"),
+            (Category.STORAGE, "Disco"),
+        ):
+            toggle = ToggleSwitch(text, True)
+            self.bench_toggles[category] = toggle
+            sub.addWidget(toggle)
+        sub.addStretch(1)
+        self.body.addLayout(sub)
+        self.quick = self._option("Modo rápido", "Testes mais curtos, em cerca de 1 minuto", False)
+        self.benchmarks.toggled.connect(self._sync_benchmarks)
+        self.health.toggled.connect(self._sync_start_text)
+        self.benchmarks.toggled.connect(self._sync_start_text)
+        self._sync_benchmarks(False)
         self.refresh_groups()
 
     def refresh_groups(self) -> None:
@@ -143,6 +167,39 @@ class ScanSetupCard(Card):
         self.group_combo.setEditText(current)
         self.group_combo.blockSignals(False)
 
+    def _option(self, title: str, caption: str, checked: bool = True) -> ToggleSwitch:
+        column = vbox(0)
+        toggle = ToggleSwitch(title, checked)
+        column.addWidget(toggle)
+        hint = label(caption, role="caption")
+        hint.setWordWrap(True)
+        hint.setContentsMargins(44, 0, 0, 0)
+        column.addWidget(hint)
+        self.body.addLayout(column)
+        return toggle
+
+    def _sync_benchmarks(self, enabled: bool) -> None:
+        for toggle in self.bench_toggles.values():
+            toggle.setEnabled(enabled)
+        self.quick.setEnabled(enabled)
+
+    def _sync_start_text(self, _checked: bool = False) -> None:
+        self.start_button.setText(self._start_text)
+
+    @property
+    def inventory_only(self) -> bool:
+        return not self.health.isChecked() and not self.benchmark_categories
+
+    @property
+    def _start_text(self) -> str:
+        return START_TEXT if self.inventory_only else "Iniciar diagnóstico"
+
+    @property
+    def benchmark_categories(self) -> set[Category]:
+        if not self.benchmarks.isChecked():
+            return set()
+        return {cat for cat, toggle in self.bench_toggles.items() if toggle.isChecked()}
+
     @property
     def group(self) -> str:
         return " ".join(self.group_combo.currentText().split())[:MAX_GROUP_LENGTH]
@@ -158,12 +215,23 @@ class ScanSetupCard(Card):
     def build_options(self):
         from extract.core.pipeline import ScanOptions
 
-        # Quick inventory only: disk health comes with the inventory (SMART counters), the
-        # slower health checks and benchmarks are left out.
-        return ScanOptions(client=self.client, group=self.group, health=False, benchmarks=set())
+        # The quick inventory is the default (disk health comes with it); the slower health
+        # checks and benchmarks run only when switched on.
+        return ScanOptions(
+            client=self.client,
+            group=self.group,
+            health=self.health.isChecked(),
+            benchmarks=self.benchmark_categories,
+            quick_benchmarks=self.quick.isChecked(),
+        )
 
     def set_running(self, running: bool) -> None:
-        for widget in (self.client_combo, self.browse_button, self.group_combo):
+        widgets = (self.client_combo, self.browse_button, self.group_combo)
+        for widget in (*widgets, self.health, self.benchmarks):
             widget.setEnabled(not running)
+        for toggle in self.bench_toggles.values():
+            toggle.setEnabled(not running and self.benchmarks.isChecked())
+        self.quick.setEnabled(not running and self.benchmarks.isChecked())
         self.start_button.setEnabled(not running)
-        self.start_button.setText("Inventário em andamento…" if running else START_TEXT)
+        busy = "Inventário em andamento…" if self.inventory_only else "Diagnóstico em andamento…"
+        self.start_button.setText(busy if running else self._start_text)

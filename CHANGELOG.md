@@ -9,8 +9,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### Changed
 
-- The app runs only the quick inventory (a few seconds); health checks and benchmarks stay
-  available from `extract-cli scan`.
+- The Diagnóstico page starts as a quick inventory (a few seconds); health checks and
+  benchmarks are still there, switched off by default.
 - Excel workbook rebuilt around the inventory: "Inventário" (one row per machine with Windows
   edition, feature version such as 23H2/24H2 and build, memory total, modules in use and slots,
   system disk size and health, IP, mask, gateway, DHCP or fixed address, MAC), "Por grupo"

@@ -36,7 +36,7 @@ class DiagnosticPage(QWidget):
         column.addWidget(
             PageHeader(
                 "Diagnóstico",
-                "Inventário rápido da máquina, salvo por cliente e grupo.",
+                "Inventário rápido por cliente e grupo; saúde e desempenho quando precisar.",
             )
         )
         row = hbox(Space.XL)
@@ -51,11 +51,21 @@ class DiagnosticPage(QWidget):
         self.setLayout(column)
 
         log_handler.emitter.message.connect(self.progress.log.append)
-        self.progress.reset(False, set())
+        for toggle in (
+            self.setup.health,
+            self.setup.benchmarks,
+            *self.setup.bench_toggles.values(),
+        ):
+            toggle.toggled.connect(self._preview_steps)
+        self._preview_steps()
 
     @property
     def is_running(self) -> bool:
         return self._thread is not None and self._thread.isRunning()
+
+    def _preview_steps(self) -> None:
+        if not self.is_running:
+            self.progress.reset(self.setup.health.isChecked(), self.setup.benchmark_categories)
 
     def start_scan(self) -> None:
         if self.is_running:
