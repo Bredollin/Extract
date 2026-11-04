@@ -54,7 +54,7 @@ _MAX_WIDTH = 60
 # Column headers per sheet; columns listed in _WRAPPED hold sentences and wrap.
 _INVENTORY_COLUMNS = [
     "Grupo",
-    "Nome da máquina",
+    "Computador",
     "Usuário",
     "Fabricante",
     "Modelo",
@@ -99,7 +99,7 @@ _GROUP_COLUMNS = [
 ]
 _MEMORY_COLUMNS = [
     "Grupo",
-    "Nome da máquina",
+    "Computador",
     "Slot",
     "Capacidade (GB)",
     "Tipo",
@@ -109,7 +109,7 @@ _MEMORY_COLUMNS = [
 ]
 _DISK_COLUMNS = [
     "Grupo",
-    "Nome da máquina",
+    "Computador",
     "Disco",
     "Disco do sistema",
     "Tipo",
@@ -123,7 +123,7 @@ _DISK_COLUMNS = [
 ]
 _NETWORK_COLUMNS = [
     "Grupo",
-    "Nome da máquina",
+    "Computador",
     "Placa de rede",
     "MAC",
     "IP",
@@ -135,7 +135,7 @@ _NETWORK_COLUMNS = [
 ]
 _FINDING_COLUMNS = [
     "Grupo",
-    "Nome da máquina",
+    "Computador",
     "Gravidade",
     "Área",
     "Achado",
@@ -144,7 +144,7 @@ _FINDING_COLUMNS = [
 ]
 _BENCHMARK_COLUMNS = [
     "Grupo",
-    "Nome da máquina",
+    "Computador",
     "Teste",
     "Área",
     "Métrica",
