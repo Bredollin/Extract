@@ -16,7 +16,11 @@
           "192.168.0.1",
           "8.8.8.8"
         ],
-        "DHCPEnabled": true
+        "DHCPEnabled": true,
+        "IPSubnet": [
+          "255.255.255.0",
+          "64"
+        ]
       },
       {
         "InterfaceIndex": 7,
@@ -25,7 +29,8 @@
         "IPAddress": "10.0.0.8",
         "DefaultIPGateway": null,
         "DNSServerSearchOrder": null,
-        "DHCPEnabled": false
+        "DHCPEnabled": false,
+        "IPSubnet": "255.0.0.0"
       }
     ],
     "Adapters": [

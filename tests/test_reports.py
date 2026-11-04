@@ -126,31 +126,66 @@ def test_inventory_rows_describe_hardware(reports):
     assert "18,4 GB livres" in rows["Unidade C:"][1]
 
 
+def _rows(sheet) -> list[dict]:
+    header = [c.value for c in sheet[1]]
+    return [
+        dict(zip(header, row, strict=True)) for row in sheet.iter_rows(min_row=2, values_only=True)
+    ]
+
+
 def test_excel_export(tmp_path, reports):
+    reports[0].group = "Recepção"
+    reports[1].group = "Financeiro"
     path = export_excel(reports, tmp_path / "saida" / "relatorio.xlsx")
     workbook = load_workbook(path)
-    assert workbook.sheetnames == ["Resumo", "Achados", "Desempenho", "Inventário"]
+    assert workbook.sheetnames == [
+        "Inventário",
+        "Por grupo",
+        "Memória",
+        "Discos",
+        "Rede",
+        "Achados",
+        "Desempenho",
+    ]
 
-    summary = workbook["Resumo"]
-    header = [c.value for c in summary[1]]
-    first = dict(zip(header, (c.value for c in summary[2]), strict=True))
-    assert first["Computador"] == "CAIXA-01"
-    assert first["Data da análise"] == datetime(2026, 10, 19, 14, 30)
-    assert first["RAM total (GB)"] == 4.0
-    assert first["Slots (usados/total)"] == "1/2"
-    assert first["Disco do sistema"] == "HDD SATA"
-    assert first["Principal achado (gravidade)"] == "Crítico"
-    assert (first["Críticos"], first["Atenção"]) == (1, 1)
-    second = dict(zip(header, (c.value for c in summary[3]), strict=True))
-    assert second["Principal achado"] == "Nenhum problema encontrado"
-    assert summary.freeze_panes == "B2"
-    assert summary.auto_filter.ref == "A1:M3"
-    severity_cell = summary.cell(row=2, column=header.index("Principal achado (gravidade)") + 1)
-    assert severity_cell.fill.fgColor.rgb.endswith("FDE2E1")
+    inventory = workbook["Inventário"]
+    escritorio, caixa = _rows(inventory)  # sorted by group: Financeiro before Recepção
+    assert (caixa["Grupo"], caixa["Computador"]) == ("Recepção", "CAIXA-01")
+    assert escritorio["Grupo"] == "Financeiro"
+    assert caixa["Windows"] == "Windows 10 Pro"
+    assert caixa["Versão"] == "22H2"
+    assert caixa["Build"] == "19045.4291"
+    assert caixa["Memória total (GB)"] == 4.0
+    assert caixa["Pentes instalados"] == 1
+    assert caixa["Slots (em uso/total)"] == "1/2"
+    assert caixa["Pentes"] == "4 GB"
+    assert caixa["Tipo do disco"] == "HDD SATA"
+    assert caixa["Tamanho do disco (GB)"] == 465.8
+    assert caixa["Saúde do disco"] == "Saudável"
+    assert caixa["IP"] == "192.168.0.10"
+    assert caixa["DHCP ou fixo"] == "DHCP"
+    assert caixa["MAC"] == "00:11:22:33:44:55"
+    assert caixa["Data do inventário"] == datetime(2026, 10, 19, 14, 30)
+    assert inventory.freeze_panes == "C2"
+    health = inventory.cell(row=3, column=list(caixa).index("Saúde do disco") + 1)
+    assert health.fill.fgColor.rgb.endswith("DDF3E4")
+
+    groups = {row["Grupo"]: row for row in _rows(workbook["Por grupo"])}
+    assert groups["Recepção"]["Máquinas"] == 1
+    assert groups["Recepção"]["Windows 10"] == 1
+    assert groups["Recepção"]["Disco HDD"] == 1
+    assert groups["Financeiro"]["Disco SSD"] == 1
+    assert groups["Financeiro"]["DHCP"] == 1
+
+    assert [r["Capacidade (GB)"] for r in _rows(workbook["Memória"])] == [4.0, 4.0]
+    disks = _rows(workbook["Discos"])
+    assert disks[0]["Disco do sistema"] == "Sim"
+    network = _rows(workbook["Rede"])
+    assert network[0]["MAC"] == "00:11:22:33:44:55"
 
     findings = workbook["Achados"]
     assert findings.max_row == 4
-    assert [findings.cell(row=r, column=2).value for r in (2, 3, 4)] == [
+    assert [findings.cell(row=r, column=3).value for r in (2, 3, 4)] == [
         "Crítico",
         "Atenção",
         "Informativo",
@@ -158,19 +193,64 @@ def test_excel_export(tmp_path, reports):
 
     performance = workbook["Desempenho"]
     rows = list(performance.iter_rows(min_row=2, values_only=True))
-    assert rows[0][:2] == ("CAIXA-01", "Disco: leitura e gravação sequencial")
-    assert rows[0][4] == 98.4
+    assert any(row[2] == "Disco: leitura e gravação sequencial" and row[5] == 98.4 for row in rows)
     assert any(row[-1] == "Teste cancelado" for row in rows)
 
-    inventory = workbook["Inventário"]
-    components = [inventory.cell(row=r, column=2).value for r in range(2, inventory.max_row + 1)]
-    assert "Processador" in components
-    assert "Disco do sistema" in components
+
+def test_excel_inventory_only_shows_smart_problems_and_fixed_ip(tmp_path):
+    report = _machine("PC-01", slow_disk=False)
+    report.health, report.benchmarks, report.findings = [], [], []
+    disk = report.inventory.disks[0]
+    disk.temperature_c, disk.wear_percent, disk.power_on_hours, disk.uncorrected_errors = (
+        45,
+        82,
+        20000,
+        3,
+    )
+    report.inventory.system.os_name = "Microsoft Windows 11 Pro"
+    report.inventory.system.os_version = "24H2"
+    report.inventory.network = [
+        NetworkAdapter(
+            "Wi-Fi",
+            "66:77:88:99:AA:BB",
+            ["10.0.0.8"],
+            ["255.0.0.0"],
+            dhcp=True,
+        ),
+        NetworkAdapter(
+            "Ethernet",
+            "00:11:22:33:44:55",
+            ["192.168.0.20"],
+            ["255.255.255.0"],
+            ["192.168.0.1"],
+            dhcp=False,
+        ),
+    ]
+    workbook = load_workbook(export_excel([report], tmp_path / "inv.xlsx"))
+    assert workbook.sheetnames == ["Inventário", "Por grupo", "Memória", "Discos", "Rede"]
+    (row,) = _rows(workbook["Inventário"])
+    assert row["Grupo"] == "Sem grupo"
+    assert (row["Windows"], row["Versão"]) == ("Windows 11 Pro", "24H2")
+    assert row["Saúde do disco"] == "Saudável (3 erros não corrigidos, desgaste 82%)"
+    assert row["Desgaste do disco (%)"] == 82
+    # The adapter with a gateway is the one in use.
+    assert (row["IP"], row["Máscara"], row["Gateway"]) == (
+        "192.168.0.20",
+        "255.255.255.0",
+        "192.168.0.1",
+    )
+    assert row["DHCP ou fixo"] == "Fixo (estático)"
+    (disk_row,) = _rows(workbook["Discos"])
+    assert disk_row["Horas ligado"] == 20000
+    (group,) = _rows(workbook["Por grupo"])
+    assert group["Discos com alerta"] == 1
+    assert group["Windows 11"] == 1
+    assert group["IP fixo"] == 1
 
 
 def test_excel_export_with_no_reports(tmp_path):
     path = export_excel([], tmp_path / "vazio.xlsx")
-    assert load_workbook(path)["Resumo"].max_row == 1
+    assert load_workbook(path)["Inventário"].max_row == 1
 
 
 def _page_count(data: bytes) -> int:
@@ -210,7 +290,7 @@ def test_default_reports_root_when_frozen(tmp_path, monkeypatch):
 def test_exports_handle_an_empty_report(tmp_path):
     empty = [MachineReport()]
     assert export_pdf(empty, tmp_path / "vazio.pdf").read_bytes().startswith(b"%PDF")
-    assert load_workbook(export_excel(empty, tmp_path / "vazio.xlsx"))["Resumo"].max_row == 2
+    assert load_workbook(export_excel(empty, tmp_path / "vazio.xlsx"))["Inventário"].max_row == 2
 
 
 def test_default_reports_root_falls_back_when_read_only(tmp_path, monkeypatch):
@@ -243,12 +323,12 @@ def test_safe_filename_blocks_traversal_and_device_names(name, expected):
 
 def test_excel_never_writes_report_text_as_formula(tmp_path):
     report = _machine("PC-01", slow_disk=True)
-    report.client = '=HYPERLINK("http://example.invalid","x")'
+    report.group = '=HYPERLINK("http://example.invalid","x")'
     path = export_excel([report], tmp_path / "out.xlsx")
 
-    cell = load_workbook(path)["Resumo"]["B2"]
+    cell = load_workbook(path)["Inventário"]["A2"]
     assert cell.data_type == "s"
-    assert cell.value == report.client
+    assert cell.value == report.group
 
 
 @pytest.mark.parametrize(

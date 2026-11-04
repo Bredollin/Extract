@@ -45,6 +45,14 @@ def build_parser() -> argparse.ArgumentParser:
     scan = commands.add_parser("scan", help="analisa este computador")
     scan.add_argument("--client", default="", help="nome do cliente")
     scan.add_argument(
+        "--group", default="", help="grupo ou setor da máquina (ex.: Recepção, Financeiro)"
+    )
+    scan.add_argument(
+        "--inventory-only",
+        action="store_true",
+        help="inventário rápido: sem verificações de saúde e sem testes de desempenho",
+    )
+    scan.add_argument(
         "--output",
         type=Path,
         help="pasta dos relatórios (padrão: reports/<cliente> ou Relatorios/<cliente> no .exe)",
@@ -105,9 +113,12 @@ def main(argv: Sequence[str] | None = None) -> int:
 
 def scan_options(args: argparse.Namespace) -> ScanOptions:
     options = ScanOptions(
-        client=args.client.strip(), health=not args.no_health, quick_benchmarks=args.quick
+        client=args.client.strip(),
+        group=args.group.strip(),
+        health=not (args.no_health or args.inventory_only),
+        quick_benchmarks=args.quick,
     )
-    if args.no_benchmarks:
+    if args.no_benchmarks or args.inventory_only:
         options.benchmarks = set()
     elif args.only:
         options.benchmarks = args.only

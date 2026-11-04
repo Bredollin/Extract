@@ -10,7 +10,12 @@
         "MediaType": 3,
         "BusType": 11,
         "HealthStatus": 0,
-        "Size": 1000204886016
+        "Size": 1000204886016,
+        "Temperature": 0,
+        "Wear": null,
+        "PowerOnHours": null,
+        "ReadErrorsUncorrected": null,
+        "WriteErrorsUncorrected": null
       },
       {
         "DeviceId": "1",
@@ -20,7 +25,12 @@
         "MediaType": 4,
         "BusType": 17,
         "HealthStatus": 1,
-        "Size": 500107862016
+        "Size": 500107862016,
+        "Temperature": 41,
+        "Wear": 3,
+        "PowerOnHours": 1234,
+        "ReadErrorsUncorrected": 0,
+        "WriteErrorsUncorrected": null
       }
     ],
     "DiskDrives": [

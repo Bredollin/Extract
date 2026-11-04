@@ -15,12 +15,14 @@ from extract.core.models import (
     Finding,
     MachineReport,
     Metric,
+    NetworkAdapter,
     Severity,
     Status,
     SystemInfo,
 )
 
 NO_CLIENT = "Sem cliente"
+NO_GROUP = "Sem grupo"
 
 # (text, background) hex colors, without "#", readable when printed in grayscale too.
 SEVERITY_COLORS = {
@@ -83,6 +85,55 @@ def os_label(system: SystemInfo) -> str:
     parts = [system.os_name, system.os_version]
     label = " ".join(p for p in parts if p)
     return f"{label} (build {system.os_build})" if system.os_build else label
+
+
+def windows_edition(system: SystemInfo) -> str:
+    """ "Microsoft Windows 11 Pro" -> "Windows 11 Pro"."""
+    name = system.os_name.strip()
+    return name[len("Microsoft ") :] if name.startswith("Microsoft ") else name
+
+
+def windows_feature_version(system: SystemInfo) -> str:
+    """Feature update ("23H2", "24H2"); older reports may hold "10.0.x" instead."""
+    version = system.os_version.strip()
+    return "" if version.count(".") >= 2 else version
+
+
+def group_label(report: MachineReport) -> str:
+    return report.group.strip() or NO_GROUP
+
+
+def modules_label(report: MachineReport) -> str:
+    """Installed modules by size, e.g. "8 GB + 8 GB"."""
+    return " + ".join(f"{format_number(m.capacity_gb)} GB" for m in report.inventory.memory.modules)
+
+
+def primary_adapter(report: MachineReport) -> NetworkAdapter | None:
+    """The adapter the machine uses to reach the network: the one with a gateway first."""
+    adapters = [a for a in report.inventory.network if a.ipv4]
+    with_gateway = [a for a in adapters if a.gateway]
+    return (with_gateway or adapters or report.inventory.network or [None])[0]
+
+
+def ip_mode(adapter: NetworkAdapter | None) -> str:
+    if adapter is None:
+        return ""
+    return "DHCP" if adapter.dhcp else "Fixo (estático)"
+
+
+def disk_health(disk: DiskInfo | None) -> str:
+    """Windows health status plus SMART problems, in one short Portuguese label."""
+    if disk is None:
+        return ""
+    label = health_label(disk.health_status) or "Indisponível"
+    problems = []
+    if disk.uncorrected_errors:
+        problems.append(f"{disk.uncorrected_errors} erros não corrigidos")
+    if disk.wear_percent is not None and disk.wear_percent >= 70:
+        problems.append(f"desgaste {disk.wear_percent}%")
+    if disk.temperature_c is not None and disk.temperature_c >= 60:
+        problems.append(f"{disk.temperature_c} °C")
+    return f"{label} ({', '.join(problems)})" if problems else label
 
 
 def ram_label(report: MachineReport) -> str:

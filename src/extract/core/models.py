@@ -164,6 +164,12 @@ class DiskInfo:
     serial_number: str = ""
     health_status: str = ""  # as reported by Windows: "Healthy", "Warning", "Unhealthy"
     is_system_disk: bool = False
+    # SMART-like reliability counters (Get-StorageReliabilityCounter). They need admin
+    # rights and not every drive reports them: None means unknown.
+    temperature_c: int | None = None
+    wear_percent: int | None = None
+    power_on_hours: int | None = None
+    uncorrected_errors: int | None = None
 
 
 @dataclass
@@ -184,6 +190,7 @@ class NetworkAdapter:
     name: str = ""
     mac_address: str = ""
     ipv4: list[str] = field(default_factory=list)
+    subnet_masks: list[str] = field(default_factory=list)
     gateway: list[str] = field(default_factory=list)
     dns_servers: list[str] = field(default_factory=list)
     dhcp: bool = False
@@ -278,6 +285,7 @@ class MachineReport:
     benchmarks: list[BenchmarkResult] = field(default_factory=list)
     findings: list[Finding] = field(default_factory=list)
     client: str = ""
+    group: str = ""  # department or area inside the client ("Recepção", "Financeiro", ...)
     notes: str = ""
     created_at: str = field(default_factory=_now_iso)
     tool_version: str = ""

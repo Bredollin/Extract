@@ -1,4 +1,4 @@
-"""Left card of the Diagnóstico page: client folder and what to run."""
+"""Left card of the Diagnóstico page: client folder and the machine's group and what to run."""
 
 from __future__ import annotations
 
@@ -15,6 +15,16 @@ from extract.gui.widgets.common import ElidedLabel, button, divider, hbox, label
 from extract.gui.widgets.toggle import ToggleSwitch
 
 LAST_CLIENT_KEY = "scan/last_client"
+LAST_GROUP_KEY = "scan/last_group"
+GROUPS_KEY = "scan/groups"
+DEFAULT_GROUPS = ("Recepção", "Administrativo", "Financeiro", "Comercial", "Diretoria")
+MAX_GROUP_LENGTH = 40
+MAX_SAVED_GROUPS = 20
+START_TEXT = "Iniciar inventário"
+
+
+def _split_groups(value: object) -> list[str]:
+    return [g.strip() for g in str(value or "").split("|") if g.strip()]
 
 
 class ScanSetupCard(Card):
@@ -29,7 +39,7 @@ class ScanSetupCard(Card):
         self.body.addSpacing(Space.XS)
         self._build_options_section()
         self.body.addStretch(1)
-        self.start_button = button("Iniciar diagnóstico", "play", "primary", "large")
+        self.start_button = button(START_TEXT, "play", "primary", "large")
         self.start_button.clicked.connect(self.start_requested)
         self.body.addWidget(self.start_button)
         self.refresh_clients()
@@ -98,14 +108,32 @@ class ScanSetupCard(Card):
     def remember_client(self) -> None:
         settings.set_value(LAST_CLIENT_KEY, self.client)
 
-    # --- What to run ---------------------------------------------------------------
+    # --- Group and what runs ----------------------------------------------------------
 
     def _build_options_section(self) -> None:
+        self.body.addWidget(label("Grupo", role="strong"))
+        self.group_combo = QComboBox()
+        self.group_combo.setEditable(True)
+        self.group_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.group_combo.lineEdit().setPlaceholderText("Setor da máquina, ex.: Recepção")
+        self.body.addWidget(self.group_combo)
+        hint = label("Usado para separar as máquinas na planilha.", role="caption")
+        self.body.addWidget(hint)
+        self.body.addSpacing(Space.S)
         self.body.addWidget(label("O que executar", role="strong"))
-        self.inventory = self._option("Inventário de hardware", "Sempre incluído", True)
+        self.inventory = self._option(
+            "Inventário rápido",
+            "Windows e versão, memória e pentes, discos e saúde, IP, DHCP ou fixo e MAC. "
+            "Poucos segundos.",
+            True,
+        )
         self.inventory.set_locked(True)
-        self.health = self._option("Saúde do sistema", "Disco, memória, eventos, inicialização")
-        self.benchmarks = self._option("Testes de desempenho", "Mede a velocidade real das peças")
+        self.health = self._option(
+            "Saúde do sistema", "Disco, memória, eventos, inicialização", False
+        )
+        self.benchmarks = self._option(
+            "Testes de desempenho", "Mede a velocidade real das peças", False
+        )
         sub = hbox(Space.L, (44, 0, 0, 0))
         self.bench_toggles: dict[Category, ToggleSwitch] = {}
         for category, text in (
@@ -120,12 +148,31 @@ class ScanSetupCard(Card):
         self.body.addLayout(sub)
         self.quick = self._option("Modo rápido", "Testes mais curtos, em cerca de 1 minuto", False)
         self.benchmarks.toggled.connect(self._sync_benchmarks)
+        self.health.toggled.connect(self._sync_start_text)
+        self.benchmarks.toggled.connect(self._sync_start_text)
+        self._sync_benchmarks(False)
+        self.refresh_groups()
+
+    def refresh_groups(self) -> None:
+        current = self.group_combo.currentText().strip() or str(
+            settings.value(LAST_GROUP_KEY, "") or ""
+        )
+        names = list(DEFAULT_GROUPS)
+        for name in _split_groups(settings.value(GROUPS_KEY, "")):
+            if name.casefold() not in {n.casefold() for n in names}:
+                names.append(name)
+        self.group_combo.blockSignals(True)
+        self.group_combo.clear()
+        self.group_combo.addItems(names)
+        self.group_combo.setEditText(current)
+        self.group_combo.blockSignals(False)
 
     def _option(self, title: str, caption: str, checked: bool = True) -> ToggleSwitch:
         column = vbox(0)
         toggle = ToggleSwitch(title, checked)
         column.addWidget(toggle)
         hint = label(caption, role="caption")
+        hint.setWordWrap(True)
         hint.setContentsMargins(44, 0, 0, 0)
         column.addWidget(hint)
         self.body.addLayout(column)
@@ -136,27 +183,55 @@ class ScanSetupCard(Card):
             toggle.setEnabled(enabled)
         self.quick.setEnabled(enabled)
 
+    def _sync_start_text(self, _checked: bool = False) -> None:
+        self.start_button.setText(self._start_text)
+
+    @property
+    def inventory_only(self) -> bool:
+        return not self.health.isChecked() and not self.benchmark_categories
+
+    @property
+    def _start_text(self) -> str:
+        return START_TEXT if self.inventory_only else "Iniciar diagnóstico"
+
     @property
     def benchmark_categories(self) -> set[Category]:
         if not self.benchmarks.isChecked():
             return set()
         return {cat for cat, toggle in self.bench_toggles.items() if toggle.isChecked()}
 
+    @property
+    def group(self) -> str:
+        return " ".join(self.group_combo.currentText().split())[:MAX_GROUP_LENGTH]
+
+    def remember_group(self) -> None:
+        group = self.group
+        settings.set_value(LAST_GROUP_KEY, group)
+        if group and group.casefold() not in {g.casefold() for g in DEFAULT_GROUPS}:
+            saved = _split_groups(settings.value(GROUPS_KEY, ""))
+            if group.casefold() not in {g.casefold() for g in saved}:
+                settings.set_value(GROUPS_KEY, "|".join([*saved, group][-MAX_SAVED_GROUPS:]))
+
     def build_options(self):
         from extract.core.pipeline import ScanOptions
 
+        # The quick inventory is the default (disk health comes with it); the slower health
+        # checks and benchmarks run only when switched on.
         return ScanOptions(
             client=self.client,
+            group=self.group,
             health=self.health.isChecked(),
             benchmarks=self.benchmark_categories,
             quick_benchmarks=self.quick.isChecked(),
         )
 
     def set_running(self, running: bool) -> None:
-        for widget in (self.client_combo, self.browse_button, self.health, self.benchmarks):
+        widgets = (self.client_combo, self.browse_button, self.group_combo)
+        for widget in (*widgets, self.health, self.benchmarks):
             widget.setEnabled(not running)
         for toggle in self.bench_toggles.values():
             toggle.setEnabled(not running and self.benchmarks.isChecked())
         self.quick.setEnabled(not running and self.benchmarks.isChecked())
         self.start_button.setEnabled(not running)
-        self.start_button.setText("Diagnóstico em andamento…" if running else "Iniciar diagnóstico")
+        busy = "Inventário em andamento…" if self.inventory_only else "Diagnóstico em andamento…"
+        self.start_button.setText(busy if running else self._start_text)

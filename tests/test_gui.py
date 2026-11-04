@@ -272,13 +272,40 @@ def test_duration_and_units():
     assert formatting.with_unit(642, "pts") == "642 pts"
 
 
+def test_scan_is_quick_inventory_with_group(window):
+    setup = window.diagnostic.setup
+    setup.group_combo.setEditText("  Financeiro   2 ")
+    options = setup.build_options()
+    assert options.group == "Financeiro 2"
+    assert options.health is False
+    assert options.benchmarks == set()
+    assert setup.group_combo.findText("Recepção") >= 0
+    assert setup.start_button.text() == "Iniciar inventário"
+
+
 def test_benchmark_categories_follow_toggles(window):
     setup = window.diagnostic.setup
+    setup.health.setChecked(True)
+    setup.benchmarks.setChecked(True)
+    assert setup.start_button.text() == "Iniciar diagnóstico"
     setup.bench_toggles[Category.STORAGE].setChecked(False)
     assert setup.benchmark_categories == {Category.CPU, Category.MEMORY}
+    options = setup.build_options()
+    assert options.health is True
+    assert options.benchmarks == {Category.CPU, Category.MEMORY}
     setup.benchmarks.setChecked(False)
     assert setup.benchmark_categories == set()
     assert setup.build_options().benchmarks == set()
+
+
+def test_new_group_is_remembered(window, portable_dirs):
+    setup = window.diagnostic.setup
+    setup.group_combo.setEditText("Estoque")
+    setup.remember_group()
+    setup.group_combo.setEditText("")
+    setup.refresh_groups()
+    assert setup.group_combo.findText("Estoque") >= 0
+    assert setup.group_combo.currentText() == "Estoque"
 
 
 def test_icon_ico_has_multiple_sizes():
