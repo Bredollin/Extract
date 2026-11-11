@@ -461,3 +461,88 @@ def test_isolated_benchmark_real_run(tmp_path):
     )
     assert [r.id for r in results] == ["storage.sequential", "storage.random"]
     assert results[0].ok and results[1].metrics["read_p99_ms"].value >= 0
+
+
+# --- USB drives: wear and SMART through the bridge -------------------------------------------
+
+SSD_LIFE_SMART = smart.encode_attributes(
+    [(9, 100, 100, 6520), (12, 99, 99, 310), (194, 67, 62, 33), (231, 72, 72, 72)]
+)
+
+
+def usb_ssd() -> DriveEntry:
+    drive = probe.parse_drive(DRIVE_ROWS[1])
+    drive.bus_type, drive.media_type, drive.model = "USB", "SSD", "INFOKIT USB 3.0"
+    return drive
+
+
+def test_usb_wear_zero_without_smart_is_unknown():
+    ps = FakePowerShell(
+        {
+            "IsInRole": [{"IsAdmin": False, "Host": "PC"}],
+            "Get-StorageReliabilityCounter": [{"Temperature": 32, "Wear": 0}],
+        }
+    )
+    result = run_disk_test(ps, usb_ssd(), DiskTestMode.HEALTH)
+    keys = {r.key: r for r in result.readings}
+    assert "wear" not in keys
+    assert keys["usb_smart"].status is Status.UNKNOWN
+    assert "administrador" in keys["usb_smart"].note
+
+
+def test_usb_smart_through_bridge_gives_ssd_life():
+    ps = FakePowerShell(
+        {
+            "IsInRole": [{"IsAdmin": True, "Host": "PC"}],
+            "Get-StorageReliabilityCounter": [{"Temperature": 32, "Wear": 0}],
+        }
+    )
+    calls = []
+
+    def reader(number):
+        calls.append(number)
+        return SSD_LIFE_SMART, []
+
+    result = run_disk_test(ps, usb_ssd(), DiskTestMode.HEALTH, sat_reader=reader)
+    keys = {r.key: r for r in result.readings}
+    assert calls == [0]
+    assert keys["wear"].value == "28% (restam 72%)"
+    assert keys["power_on_hours"].value == "6.520 h"
+    assert "usb_smart" not in keys
+    assert {a.id for a in result.smart} == {9, 12, 194, 231}
+
+
+def test_bridge_reader_not_called_without_admin_or_for_sata():
+    calls = []
+    reader = lambda n: calls.append(n)  # noqa: E731
+    ps = FakePowerShell({"IsInRole": [{"IsAdmin": False, "Host": "PC"}]})
+    run_disk_test(ps, usb_ssd(), DiskTestMode.HEALTH, sat_reader=reader)
+    ps = FakePowerShell({"IsInRole": [{"IsAdmin": True, "Host": "PC"}]})
+    run_disk_test(ps, probe.parse_drive(DRIVE_ROWS[0]), DiskTestMode.HEALTH, sat_reader=reader)
+    assert calls == []
+
+
+def test_sat_cdb_is_ata_pass_through_16_smart_read():
+    from extract.disktest import sat
+
+    cdb = sat.sat_cdb(sat.SMART_READ_DATA)
+    assert len(cdb) == 16 and cdb[0] == 0x85 and cdb[4] == 0xD0
+    assert (cdb[10], cdb[12], cdb[14]) == (0x4F, 0xC2, 0xB0)
+
+
+def fake_sat_ok(number):
+    return SSD_LIFE_SMART, [0] * 362
+
+
+def fake_sat_hang(number):
+    import time as _time
+
+    _time.sleep(600)
+
+
+def test_sat_reader_child_process_result_and_timeout():
+    from extract.disktest import sat
+
+    data, _thresholds = sat.read_sat_smart(1, target="test_disktest.fake_sat_ok")
+    assert data == SSD_LIFE_SMART
+    assert sat.read_sat_smart(1, timeout_s=2, target="test_disktest.fake_sat_hang") is None
