@@ -70,7 +70,7 @@ BAR_REFERENCES = {
 
 FACT_ICONS = {
     "Saúde": "heart-pulse",
-    "Vida útil restante": "gauge",
+    "Vida útil": "gauge",
     "Tempo ligado": "clock",
     "Temperatura": "activity",
 }

@@ -40,15 +40,22 @@ class Summary:
 
 
 def time_powered(hours: int) -> str:
-    """6520 -> "cerca de 9 meses ligado" (counting 24 h a day)."""
+    """6520 -> "cerca de 9 meses" (counting 24 h a day)."""
     days = hours / 24
     if days < 1:
-        return "menos de 1 dia ligado"
+        return "menos de 1 dia"
     if days < 60:
-        return f"cerca de {fmt(days)} dias ligado"
+        return f"cerca de {fmt(days)} dias"
     if days < 365 * 2:
-        return f"cerca de {fmt(days / 30.4)} meses ligado"
-    return f"cerca de {fmt(days / 365, 1)} anos ligado"
+        return f"cerca de {fmt(days / 30.4)} meses"
+    return f"cerca de {fmt(days / 365, 1)} anos"
+
+
+def _line(reading) -> str:
+    """ "Espaço livre em C:" + "11%" -> "Espaço livre em C: 11%" (no double colon)."""
+    sep = " " if reading.label.endswith(":") else ": "
+    note = f" ({reading.note})" if reading.note else ""
+    return f"{reading.label}{sep}{reading.value}{note}"
 
 
 def _situation(report: DiskTestReport) -> tuple[Status, str, str]:
@@ -113,23 +120,21 @@ def build(report: DiskTestReport) -> Summary:
         if r.group == "health" and r.status in (Status.WARNING, Status.CRITICAL)
     ]  # fmt: skip
     problems.sort(key=lambda r: r.status is not Status.CRITICAL)
-    summary.reasons = [
-        f"{r.label}: {r.value}" + (f" ({r.note})" if r.note else "") for r in problems
-    ]
+    summary.reasons = [_line(r) for r in problems]
 
     percent = report.health_percent
     summary.facts.append(
         Fact(
             "Saúde",
             "?" if percent is None else f"{percent}%",
-            "vida útil e defeitos do disco" if percent is not None else "SMART não lido",
+            "vida e defeitos" if percent is not None else "SMART não lido",
             status,
         )
     )
     if report.life_left is not None:
         life_status = next((r.status for r in report.readings if r.key == "wear"), Status.OK)
         summary.facts.append(
-            Fact("Vida útil restante", f"{report.life_left}%", "do que o fabricante garante",
+            Fact("Vida útil", f"{report.life_left}%", "restante",
                  life_status)
         )  # fmt: skip
     if report.power_on_hours is not None:
@@ -143,9 +148,7 @@ def build(report: DiskTestReport) -> Summary:
 
     summary.speed = _speed(report)
     summary.cares = [
-        f"{r.label}: {r.value}" + (f" ({r.note})" if r.note else "")
-        for r in report.readings
-        if r.group == "care" and r.status is not Status.OK
+        _line(r) for r in report.readings if r.group == "care" and r.status is not Status.OK
     ]
     summary.cares += [r.note for r in report.readings if r.group == "info" and r.note]
     summary.actions = report.recommendations[:3]

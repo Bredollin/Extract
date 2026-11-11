@@ -623,6 +623,6 @@ def test_health_percent_unknown_without_any_reading():
 def test_time_powered_text():
     from extract.disktest.summary import time_powered
 
-    assert time_powered(6520) == "cerca de 9 meses ligado"
-    assert time_powered(48) == "cerca de 2 dias ligado"
-    assert time_powered(40000) == "cerca de 4,6 anos ligado"
+    assert time_powered(6520) == "cerca de 9 meses"
+    assert time_powered(48) == "cerca de 2 dias"
+    assert time_powered(40000) == "cerca de 4,6 anos"
