@@ -35,14 +35,20 @@ def _bad_sector_count(smart: Sequence[SmartAttribute]) -> int | None:
 
 
 def _wear(counters: dict[str, Any], smart: Sequence[SmartAttribute], drive: DriveEntry):
-    """Percent of rated life used, from Windows' counter or the SSD's own life attribute."""
-    wear = to_int(counters.get("Wear"))
-    if wear is not None and (wear > 0 or drive.kind in ("nvme", "sata_ssd")):
-        return wear
+    """Percent of rated life used: the SSD's own life attribute first, then Windows' counter.
+
+    USB bridges usually report Windows' `Wear` as 0 whatever the drive says, so a 0 over
+    USB without SMART data means "unknown", not "new".
+    """
     if drive.kind != "hdd":
         life = find(smart, *SSD_LIFE_ATTRIBUTES)
         if life is not None and 0 < life.current <= 100:
             return 100 - life.current
+    wear = to_int(counters.get("Wear"))
+    if wear is None or (wear == 0 and drive.bus_type.upper() == "USB"):
+        return None
+    if wear > 0 or drive.kind in ("nvme", "sata_ssd"):
+        return wear
     return None
 
 
@@ -181,7 +187,17 @@ def health_readings(
             "pouco espaço livre" if percent <= warn else "",
         )
 
-    if not is_admin and not counters and not smart:
+    if drive.bus_type.upper() == "USB" and not smart and drive.kind != "nvme":
+        add(
+            "usb_smart",
+            "SMART pelo USB",
+            "Indisponível",
+            Status.UNKNOWN,
+            "o adaptador USB não respondeu; abra como administrador ou ligue o disco no SATA"
+            if is_admin
+            else "abra o Extract como administrador para ler o SMART pelo adaptador USB",
+        )
+    elif not is_admin and not counters and not smart:
         add(
             "admin",
             "Contadores SMART",

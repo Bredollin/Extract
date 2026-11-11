@@ -15,6 +15,8 @@ from extract.core.progress import CancelToken, ProgressCallback, no_progress, su
 from . import evaluate, probe
 from .isolated import run_disk_isolated
 from .models import DiskTestMode, DiskTestReport, DriveEntry
+from .sat import read_sat_smart
+from .smart import parse_attributes, parse_thresholds
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +45,7 @@ def run_disk_test(
     progress: ProgressCallback = no_progress,
     cancel: CancelToken | None = None,
     benchmark=run_disk_isolated,
+    sat_reader=read_sat_smart,
 ) -> DiskTestReport:
     """Test one physical drive. `volume` ("D:") picks where the speed test writes."""
     cancel = cancel or CancelToken()
@@ -57,6 +60,12 @@ def run_disk_test(
     cancel.raise_if_cancelled()
     progress(health_end * 0.6, "Disco: lendo atributos SMART")
     smart, predicted = probe.raw_smart(ps, drive, drive_count)
+    if not smart and is_admin and drive.bus_type.upper() == "USB" and drive.kind != "nvme":
+        progress(health_end * 0.7, "Disco: lendo SMART pelo adaptador USB")
+        raw = sat_reader(drive.number)
+        if raw is not None:
+            smart = parse_attributes(raw[0], parse_thresholds(raw[1]))
+            log.info("SAT SMART: %d attributes from disk %s", len(smart), drive.number)
     cancel.raise_if_cancelled()
     trim = probe.trim_enabled(ps) if drive.kind in ("nvme", "sata_ssd") else None
     progress(health_end, "Disco: saúde lida")

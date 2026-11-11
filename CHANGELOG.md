@@ -5,6 +5,28 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2] - 2026-11-11
+
+### Added
+
+- Teste de disco: SMART of SATA drives behind a USB adapter, read through SCSI/ATA
+  Translation ("ATA PASS-THROUGH (16)", the method Hard Disk Sentinel uses). Needs admin;
+  runs in a child process with a 15 s timeout.
+- Teste de disco: progress panel with percentage, elapsed time and each phase (health,
+  sequential write/read, random read/write) marked as done, running or failed, and a
+  "Disco sem resposta há N s" warning after 15 s without progress.
+
+### Fixed
+
+- A disk that stops answering (seen on a USB SSD) froze the test and Cancel did nothing.
+  The speed test now runs in a child process: Cancel ends it at once, and after 90 s
+  without progress it stops with "O disco não respondeu". Leftover test files are removed.
+- USB drives are tested without `FILE_FLAG_WRITE_THROUGH` (forced unit access), which some
+  USB bridges handle very slowly.
+- SSD life: the drive's own SMART life attribute (#231 and similar) now wins over Windows'
+  `Wear` counter, and a `Wear` of 0 over USB without SMART is shown as unknown instead of
+  "0% used" (a USB SSD at 72% life was reported as new).
+
 ## [2.3.0] - 2026-11-11
 
 ### Added
