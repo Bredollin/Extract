@@ -191,6 +191,18 @@ and 184 (≥ 1 critical) should stay at zero. WMI instances are matched to the d
 product words in `InstanceName`. NVMe drives have no ATA SMART; their health comes from the
 reliability counters.
 
+Drives behind a USB adapter are not seen by the WMI SMART classes. With admin rights the
+test then sends SMART READ DATA / READ THRESHOLDS wrapped in the SCSI "ATA PASS-THROUGH (16)"
+CDB (opcode 0x85) through `IOCTL_SCSI_PASS_THROUGH` on `\\.\PhysicalDriveN`
+(`disktest/sat.py`), in a child process with a 15 s timeout. Bridges without SAT support
+return nothing and the reading "SMART pelo USB" says so. Windows' `Wear` counter is ignored
+when it reads 0 over USB, since bridges report 0 whatever the drive's real wear.
+
+Speed runs in a child process (`disktest/isolated.py`) so that a request stuck in the
+kernel cannot freeze the app: Cancel terminates the process, and 90 s without progress stops
+the test with "O disco não respondeu". USB drives are opened without
+`FILE_FLAG_WRITE_THROUGH`, since some USB bridges stall on forced-unit-access writes.
+
 Speed uses the scan's disk benchmark (`benchmarks/disk.py`) on the chosen volume: the temp
 folder for the system volume (its root needs admin), the volume root for the others. "Só
 saúde" writes nothing. Results are compared with `DISK_EXPECTATIONS` for the drive type; a
