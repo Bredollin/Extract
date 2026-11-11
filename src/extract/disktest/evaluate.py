@@ -52,6 +52,36 @@ def _wear(counters: dict[str, Any], smart: Sequence[SmartAttribute], drive: Driv
     return None
 
 
+def _hours(counters: dict[str, Any], smart: Sequence[SmartAttribute]) -> int | None:
+    hours = to_int(counters.get("PowerOnHours"))
+    hours_attr = find(smart, POWER_ON_HOURS)
+    if hours is None and hours_attr is not None:
+        hours = hours_attr.raw & 0xFFFFFFFF
+    return hours
+
+
+def vitals(
+    drive: DriveEntry, counters: dict[str, Any], smart: Sequence[SmartAttribute]
+) -> tuple[int | None, int | None]:
+    """(SSD life left in percent, hours powered on), as numbers for the summary."""
+    wear = _wear(counters, smart, drive)
+    return (None if wear is None else max(0, 100 - wear)), _hours(counters, smart)
+
+
+# Readings about usage or setup: worth fixing, but none of them means the drive is failing,
+# so they never lower the health status or the health percent.
+CARE_KEYS = {"trim", "alignment", "crc", "power_on_hours", "max_latency"}
+INFO_KEYS = {"usb_smart", "admin"}
+
+
+def _group(key: str) -> str:
+    if key in INFO_KEYS:
+        return "info"
+    if key in CARE_KEYS or key.startswith("free_"):
+        return "care"
+    return "health"
+
+
 def health_readings(
     drive: DriveEntry,
     counters: dict[str, Any],
@@ -63,7 +93,7 @@ def health_readings(
     readings: list[Reading] = []
 
     def add(key: str, label: str, value: str, status: Status = Status.OK, note: str = ""):
-        readings.append(Reading(key, label, value, status, note))
+        readings.append(Reading(key, label, value, status, note, _group(key)))
 
     status, text = _WINDOWS_HEALTH.get(drive.health_status, (Status.UNKNOWN, "Desconhecido"))
     add("windows", "Avaliação do Windows", text, status)
@@ -101,10 +131,7 @@ def health_readings(
             "planeje a troca" if status is not Status.OK else "",
         )
 
-    hours = to_int(counters.get("PowerOnHours"))
-    hours_attr = find(smart, POWER_ON_HOURS)
-    if hours is None and hours_attr is not None:
-        hours = hours_attr.raw & 0xFFFFFFFF
+    hours = _hours(counters, smart)
     if hours is not None:
         status = Status.OK
         note = f"cerca de {fmt(hours / 24 / 365, 1)} anos ligado"
@@ -213,9 +240,13 @@ def _expectation(drive: DriveEntry):
 
 
 def performance_status(drive: DriveEntry, metrics: dict[str, Metric]) -> tuple[Status, list[str]]:
-    """Compare measured numbers with the minimum expected for the drive's kind."""
+    """Compare measured numbers with the minimum expected for the drive's kind.
+
+    Over USB the adapter and port set the speed (a SATA SSD reads ~22 MB/s on USB 2.0), so
+    the drive is not judged by it: the status stays unknown and the summary explains why.
+    """
     expected = _expectation(drive)
-    if not metrics or expected is None:
+    if not metrics or expected is None or drive.bus_type.upper() == "USB":
         return Status.UNKNOWN, []
     checks = (
         ("read_mb_s", expected.min_seq_read_mb_s, "leitura sequencial"),
@@ -239,6 +270,8 @@ def performance_status(drive: DriveEntry, metrics: dict[str, Metric]) -> tuple[S
 def _health_score(readings: Sequence[Reading]) -> int:
     score = 100
     for reading in readings:
+        if reading.group != "health":
+            continue
         if reading.status is Status.CRITICAL:
             score -= 45
         elif reading.status is Status.WARNING:
@@ -248,7 +281,7 @@ def _health_score(readings: Sequence[Reading]) -> int:
 
 def _performance_score(drive: DriveEntry, metrics: dict[str, Metric]) -> int | None:
     expected = _expectation(drive)
-    if not metrics or expected is None:
+    if not metrics or expected is None or drive.bus_type.upper() == "USB":
         return None
     pairs = (
         ("read_mb_s", expected.typical_seq_read_mb_s),
@@ -266,11 +299,18 @@ def _performance_score(drive: DriveEntry, metrics: dict[str, Metric]) -> int | N
 def finish(report: DiskTestReport) -> DiskTestReport:
     """Fill the statuses, score, verdict and recommendations of a report with its readings."""
     drive = report.drive
-    known = [r.status for r in report.readings if r.status is not Status.UNKNOWN]
+    known = [
+        r.status for r in report.readings if r.group == "health" and r.status is not Status.UNKNOWN
+    ]
     report.health_status = worst(*known) if known else Status.UNKNOWN
+    report.health_percent = health_percent(report)
     report.performance_status, slow = performance_status(drive, report.performance)
 
     health = _health_score(report.readings)
+    if report.health_percent is not None:
+        health = min(health, report.health_percent)
+    cares = sum(1 for r in report.readings if r.group == "care" and r.status is not Status.OK)
+    health = max(0, health - 5 * cares)
     performance = _performance_score(drive, report.performance)
     if performance is None:
         report.score = health
@@ -284,6 +324,50 @@ def finish(report: DiskTestReport) -> DiskTestReport:
     report.verdict = _verdict(report)
     report.recommendations = _recommendations(report, slow)
     return report
+
+
+def health_percent(report: DiskTestReport) -> int | None:
+    """Health 0-100 like Hard Disk Sentinel's: SSD life left minus damage found in SMART.
+
+    Only the drive's own condition counts (life, bad sectors, errors it could not fix, its
+    failure prediction). Temperature, free space, TRIM, cable errors and speed do not.
+    None when nothing about the drive's condition could be read.
+    """
+    by_key = {r.key: r for r in report.readings}
+    smart = report.smart
+    uncorrected = by_key.get("uncorrected")
+    if report.life_left is None and not smart and uncorrected is None:
+        return None
+
+    def raw(*ids: int) -> int:
+        values = [a.raw for a in smart if a.id in ids]
+        return max(values) if values else 0
+
+    percent = 100 if report.life_left is None else report.life_left
+    penalty = (
+        min(40, raw(5, 196))  # reallocated sectors / reallocation events
+        + min(40, 3 * raw(197))  # pending (unstable) sectors
+        + min(40, 3 * raw(198))  # uncorrectable sectors
+        + min(30, 10 * raw(10))  # spin retries (HDD motor)
+        + min(30, 10 * raw(184))  # end-to-end errors
+    )
+    if find(smart, 187) is not None:
+        penalty += min(30, 2 * raw(187))
+    elif uncorrected is not None:
+        penalty += min(30, 2 * (to_int(uncorrected.value.replace(".", "")) or 0))
+    percent = max(0, min(100, percent - penalty))
+
+    caps = [100]
+    if any(a.status is Status.CRITICAL and a.note.startswith("abaixo do limite") for a in smart):
+        caps.append(10)
+    if by_key.get("smart_predict") and by_key["smart_predict"].status is Status.CRITICAL:
+        caps.append(10)
+    windows = by_key.get("windows")
+    if windows is not None and windows.status is Status.CRITICAL:
+        caps.append(20)
+    elif windows is not None and windows.status is Status.WARNING:
+        caps.append(60)
+    return min(percent, *caps)
 
 
 def _verdict(report: DiskTestReport) -> str:
@@ -303,6 +387,8 @@ def _verdict(report: DiskTestReport) -> str:
         return "Disco saudável, com desempenho um pouco abaixo do esperado."
     if health is Status.UNKNOWN and perf is Status.UNKNOWN:
         return "Não foi possível avaliar o disco (sem dados de saúde nem desempenho)."
+    if perf is Status.UNKNOWN and report.performance and report.over_usb:
+        return "Disco saudável. A velocidade medida é a da conexão USB, não a do disco."
     if perf is Status.UNKNOWN:
         return "Disco saudável. Rode o teste de desempenho para medir a velocidade."
     return "Disco saudável e com desempenho dentro do esperado."
@@ -340,6 +426,12 @@ def _recommendations(report: DiskTestReport, slow: list[str]) -> list[str]:
         tips.append("Partição desalinhada: realinhe com ferramenta de partição ou reinstale.")
     if any(r.key.startswith("free_") and r.status is not Status.OK for r in report.readings):
         tips.append("Libere espaço: abaixo de 20% livre o Windows e o disco ficam mais lentos.")
+    read = report.performance.get("read_mb_s")
+    if report.over_usb and read is not None and read.value < ref.DISKTEST_USB2_READ_MB_S:
+        tips.append(
+            "A leitura pelo USB ficou no nível do USB 2.0: para medir o disco de verdade, "
+            "use porta USB 3 (azul) com adaptador USB 3, ou ligue o disco direto no SATA."
+        )
     if slow:
         listed = ", ".join(slow)
         if drive.bus_type == "USB":

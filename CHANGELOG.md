@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-11-11
+
+### Added
+
+- Teste de disco: results open on a "Resumo" tab with the drive's situation in plain words
+  (Bom / Atenção / Substituir / Sem dados), the reasons, health %, life left, hours on,
+  temperature, the speed explained, care items and what to do. The previous view moved to
+  "Detalhes". The PDF starts with the same summary.
+- Health percent (0-100) computed like Hard Disk Sentinel's: SSD life left minus SMART
+  damage. The real USB SSD case (life 72%, 6,520 h) gives 72%, as the Sentinel showed.
+
+### Fixed
+
+- Over USB the speed was compared with a SATA SSD, so a healthy drive on a USB 2.0 adapter
+  looked slow and lost points. USB speed is now shown as the link's speed, without bars,
+  comparison or score.
+- Free space, TRIM, alignment, CRC (cable), power-on hours and worst latency no longer turn
+  the health to "Em alerta": they are listed as care items, not drive faults.
+
 ## [2.3.2] - 2026-11-11
 
 ### Added

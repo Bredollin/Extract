@@ -17,6 +17,7 @@ from extract.health.base import fmt
 from extract.reports.paths import DISK_TEST_FOLDER, default_reports_root
 from extract.reports.storage import safe_filename
 
+from . import summary
 from .models import DiskTestMode, DiskTestReport
 
 log = logging.getLogger(__name__)
@@ -75,6 +76,8 @@ def expected_text(report: DiskTestReport, key: str) -> str:
     expected = DISK_EXPECTATIONS.get(report.drive.kind or "sata_ssd")
     if expected is None:
         return ""
+    if report.over_usb:
+        return "pelo USB: não avaliado" if key in ("read_mb_s", "write_mb_s", "read_iops") else ""
     minimum = {
         "read_mb_s": (expected.min_seq_read_mb_s, "MB/s"),
         "write_mb_s": (expected.min_seq_write_mb_s, "MB/s"),
@@ -163,6 +166,28 @@ def export_pdf(report: DiskTestReport, path: Path) -> Path:
             f"{escape(report.verdict)}</b></font>",
             body,
         ),
+    ]
+    resumo = summary.build(report)
+    color = STATUS_HEX[resumo.status]
+    story += [
+        Paragraph("Resumo", h2),
+        Paragraph(
+            f'<font color="{color}" size="14"><b>{escape(resumo.situation)}</b></font>', body
+        ),
+        p(resumo.headline, body, bold=True),
+        *[p(f"• {reason}", body) for reason in resumo.reasons],
+        Spacer(1, 4),
+        table(
+            [[p(f.title, bold=True), p(f"{f.value}  {f.detail}")] for f in resumo.facts]
+            + [[p("Velocidade", bold=True), p(resumo.speed)]],
+            [0.3, 0.7],
+            False,
+        ),
+    ]
+    if resumo.cares:
+        story.append(p("Cuidados (não são defeito do disco):", body, bold=True))
+        story += [p(f"• {care}", body) for care in resumo.cares]
+    story += [
         Paragraph("Identificação", h2),
         table([[p(k, bold=True), p(v)] for k, v in identity_rows(report)], [0.3, 0.7], False),
         Paragraph("Saúde", h2),

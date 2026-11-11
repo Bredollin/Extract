@@ -426,6 +426,7 @@ def build_demo_disk_report():
         hostname="RECEPCAO-01", created_at="2026-11-11T10:48:12-03:00", tool_version=__version__,
     )  # fmt: skip
     report.readings = evaluate.health_readings(drive, counters, smart, False, None, True)
+    report.life_left, report.power_on_hours = evaluate.vitals(drive, counters, smart)
     report.performance = {
         "read_mb_s": _metric(118.4, "MB/s", "Leitura sequencial"),
         "write_mb_s": _metric(104.9, "MB/s", "Gravação sequencial"),

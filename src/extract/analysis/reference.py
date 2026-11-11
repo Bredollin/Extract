@@ -129,5 +129,7 @@ DISKTEST_MAX_LATENCY_WARNING_MS = 2000  # a single request this slow is a visibl
 DISKTEST_FREE_WARNING_PERCENT = 20  # free space at or below this slows Windows down
 # Results below this share of the minimum expectation are critical, not just a warning.
 DISKTEST_PERF_CRITICAL_SHARE = 0.5
+# USB 2.0 tops out around 35-40 MB/s in practice: reads below this point at a USB 2.0 link.
+DISKTEST_USB2_READ_MB_S = 45
 # Weight of health in the 0-100 score when performance was measured too.
 DISKTEST_HEALTH_WEIGHT = 0.6

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QMessageBox,
     QProgressBar,
+    QTabWidget,
     QWidget,
 )
 
@@ -23,6 +24,7 @@ from extract.core.models import Status
 from extract.core.powershell import PowerShell, PowerShellRunner
 from extract.disktest import DiskTestMode, DiskTestReport, DriveEntry, list_drives, run_disk_test
 from extract.disktest import report as disk_report
+from extract.disktest import summary as disk_summary
 from extract.gui import formatting, settings
 from extract.gui.pages.disk_test_progress import DiskTestProgress
 from extract.gui.theme import STATUS_TONES, Space
@@ -65,6 +67,14 @@ BAR_REFERENCES = {
     "read_iops": ("typical_random_read_iops", 1.0),
     "write_iops": ("typical_random_read_iops", 1.0),
 }
+
+FACT_ICONS = {
+    "Saúde": "heart-pulse",
+    "Vida útil restante": "gauge",
+    "Tempo ligado": "clock",
+    "Temperatura": "activity",
+}
+RESULT_TABS = ("Resumo", "Detalhes")
 
 
 def _status_tone(status: Status) -> str:
@@ -393,8 +403,84 @@ class DiskTestPage(QWidget):
         self.results_holder.addWidget(widget)
 
     def _results_view(self, report: DiskTestReport) -> QWidget:
+        holder = QWidget()
+        outer = vbox(Space.M, (0, 0, 0, 0))
+        self.result_tabs = QTabWidget()
+        self.result_tabs.setDocumentMode(True)
+        self.result_tabs.addTab(self._summary_view(report), RESULT_TABS[0])
+        self.result_tabs.addTab(self._details_view(report), RESULT_TABS[1])
+        outer.addWidget(self.result_tabs, 1)
+
+        actions = hbox(Space.S)
+        actions.addStretch(1)
+        self.open_folder_button = button("Abrir pasta", "folder")
+        self.open_folder_button.clicked.connect(self._open_folder)
+        actions.addWidget(self.open_folder_button)
+        self.save_button = button("Salvar PDF", "file-pdf", "primary")
+        self.save_button.clicked.connect(self.save_report)
+        actions.addWidget(self.save_button)
+        outer.addLayout(actions)
+        holder.setLayout(outer)
+        return holder
+
+    def _summary_view(self, report: DiskTestReport) -> QWidget:
+        """Plain-language situation of the drive: what anyone needs to decide."""
+        summary = disk_summary.build(report)
         content = QWidget()
-        column = vbox(Space.L, (0, 0, Space.S, Space.L))
+        column = vbox(Space.L, (0, Space.M, Space.S, Space.L))
+
+        situation = Card(spacing=Space.S)
+        situation.set_tone(_status_tone(summary.status))
+        situation.body.addWidget(label("Situação do disco", role="eyebrow"))
+        situation.body.addWidget(
+            label(summary.situation, role="title", tone=_status_tone(summary.status))
+        )
+        situation.body.addWidget(label(summary.headline, role="headline", wrap=True))
+        situation.body.addWidget(label(report.drive.title, role="muted", wrap=True))
+        for reason in summary.reasons:
+            situation.body.addWidget(label(f"•  {reason}", wrap=True, selectable=True))
+        column.addWidget(situation)
+        self.summary_situation = summary.situation
+
+        tiles = hbox(Space.M)
+        for fact in summary.facts:
+            tiles.addWidget(
+                StatCard(fact.title, fact.value, fact.detail, FACT_ICONS.get(fact.title, "info"),
+                         _status_tone(fact.status))
+            )  # fmt: skip
+        column.addLayout(tiles)
+
+        speed = Card("Velocidade", spacing=Space.S)
+        speed.body.addWidget(label(summary.speed, wrap=True, selectable=True))
+        column.addWidget(speed)
+
+        if summary.cares:
+            cares = Card("Cuidados (não são defeito do disco)", spacing=Space.S)
+            for care in summary.cares:
+                cares.body.addWidget(label(f"•  {care}", wrap=True, selectable=True))
+            column.addWidget(cares)
+
+        if summary.actions:
+            actions = Card("O que fazer", spacing=Space.S)
+            for number, action in enumerate(summary.actions, 1):
+                actions.body.addWidget(label(f"{number}.  {action}", wrap=True, selectable=True))
+            column.addWidget(actions)
+
+        column.addWidget(
+            label(
+                "Saúde calculada como no Hard Disk Sentinel: vida útil do SSD menos setores "
+                "defeituosos e erros que o disco não corrigiu. Pode variar alguns pontos.",
+                role="caption",
+                wrap=True,
+            )
+        )
+        column.addStretch(1)
+        content.setLayout(column)
+        return scroll_area(content)
+
+    def _details_view(self, report: DiskTestReport) -> QWidget:
+        content = QWidget()
+        column = vbox(Space.L, (0, Space.M, Space.S, Space.L))
 
         tiles = hbox(Space.M)
         score = "?" if report.score is None else f"{report.score}/100"
@@ -405,8 +491,11 @@ class DiskTestPage(QWidget):
                      "heart-pulse", _status_tone(report.health_status))
         )  # fmt: skip
         perf_detail = f"unidade {report.tested_volume}" if report.tested_volume else "não medido"
+        perf_value = report.performance_status.label
+        if report.over_usb and report.performance:
+            perf_value, perf_detail = "Pelo USB", "não avalia o disco"
         tiles.addWidget(
-            StatCard("Desempenho", report.performance_status.label, perf_detail, "activity",
+            StatCard("Desempenho", perf_value, perf_detail, "activity",
                      _status_tone(report.performance_status))
         )  # fmt: skip
         column.addLayout(tiles)
@@ -429,16 +518,6 @@ class DiskTestPage(QWidget):
         if report.smart:
             column.addWidget(self._smart_card(report))
         column.addWidget(self._identity_card(report))
-
-        actions = hbox(Space.S)
-        actions.addStretch(1)
-        self.open_folder_button = button("Abrir pasta", "folder")
-        self.open_folder_button.clicked.connect(self._open_folder)
-        actions.addWidget(self.open_folder_button)
-        self.save_button = button("Salvar PDF", "file-pdf", "primary")
-        self.save_button.clicked.connect(self.save_report)
-        actions.addWidget(self.save_button)
-        column.addLayout(actions)
         column.addStretch(1)
         content.setLayout(column)
         return scroll_area(content)
@@ -478,7 +557,10 @@ class DiskTestPage(QWidget):
         card = Card("Desempenho", spacing=Space.S)
         if report.performance_error:
             card.body.addWidget(label(report.performance_error, tone="warning", wrap=True))
-        expected = DISK_EXPECTATIONS.get(report.drive.kind or "sata_ssd")
+        # Over USB the link sets the speed: comparing with a SATA SSD would only confuse.
+        expected = (
+            None if report.over_usb else DISK_EXPECTATIONS.get(report.drive.kind or "sata_ssd")
+        )
         grid = QGridLayout()
         grid.setHorizontalSpacing(Space.L)
         grid.setVerticalSpacing(Space.S)
@@ -500,7 +582,16 @@ class DiskTestPage(QWidget):
             row += 1
         grid.setColumnStretch(2, 1)
         card.body.addLayout(grid)
-        if expected is not None and row:
+        if report.over_usb and row:
+            card.body.addWidget(
+                label(
+                    "Medido pelo USB: a velocidade é a do adaptador e da porta, não a do disco, "
+                    "por isso não há barras nem comparação com SSD/HD.",
+                    role="caption",
+                    wrap=True,
+                )
+            )
+        elif expected is not None and row:
             card.body.addWidget(
                 label(
                     f"Barras em relação a um {expected.label} típico "
