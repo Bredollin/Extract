@@ -355,6 +355,11 @@ def test_disk_test_page_lists_drives_and_runs_health_test(window):
     assert page.report.drive.number == 1
     assert page.report.mode == DiskTestMode.HEALTH
     assert page.start_button.isEnabled()
+    # Results open on the plain-language summary; the full readings are one tab away.
+    tabs = page.result_tabs
+    assert [tabs.tabText(i) for i in range(tabs.count())] == ["Resumo", "Detalhes"]
+    assert tabs.currentIndex() == 0
+    assert page.summary_situation in ("Bom", "Atenção", "Substituir")
 
 
 def test_disk_test_page_saves_pdf_outside_client_folders(window, portable_dirs, monkeypatch):

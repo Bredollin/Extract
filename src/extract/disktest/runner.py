@@ -79,6 +79,7 @@ def run_disk_test(
         tool_version=__version__,
     )
     report.readings = evaluate.health_readings(drive, counters, smart, predicted, trim, is_admin)
+    report.life_left, report.power_on_hours = evaluate.vitals(drive, counters, smart)
 
     if benchmarking:
         letter = volume or next((v.letter for v in drive.volumes if v.letter), "")

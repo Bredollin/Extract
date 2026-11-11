@@ -546,3 +546,83 @@ def test_sat_reader_child_process_result_and_timeout():
     data, _thresholds = sat.read_sat_smart(1, target="test_disktest.fake_sat_ok")
     assert data == SSD_LIFE_SMART
     assert sat.read_sat_smart(1, timeout_s=2, target="test_disktest.fake_sat_hang") is None
+
+
+# --- reliability: health percent, USB speed, setup items -------------------------------------
+
+
+def test_usb_ssd_health_matches_hard_disk_sentinel():
+    """Real case: Kingston 240 GB on a USB bridge; Hard Disk Sentinel showed 72% and 6520 h."""
+    from extract.disktest import summary
+
+    ps = FakePowerShell({"IsInRole": [{"IsAdmin": True, "Host": "PC"}]})
+    bench = fake_bench(
+        {"read_mb_s": Metric(22, "MB/s", ""), "write_mb_s": Metric(20, "MB/s", ""),
+         "read_iops": Metric(900, "IOPS", "")}
+    )  # fmt: skip
+    result = run_disk_test(
+        ps,
+        usb_ssd(),
+        DiskTestMode.QUICK,
+        benchmark=bench,
+        sat_reader=lambda n: (SSD_LIFE_SMART, []),
+    )
+    assert result.health_percent == 72 and result.life_left == 72
+    assert result.power_on_hours == 6520
+    # USB speed is the link's: no "slow disk" alert and it does not pull the score down.
+    assert result.performance_status is Status.UNKNOWN
+    assert result.health_status is Status.OK
+    assert "conexão USB" in result.verdict
+    assert any("USB 3" in tip for tip in result.recommendations)
+    view = summary.build(result)
+    assert view.situation == "Bom" and "28%" in view.headline
+    assert [f.value for f in view.facts][:3] == ["72%", "72%", "6.520 h"]
+    assert "pelo USB (nível de USB 2.0)" in view.speed and "não do disco" in view.speed
+    assert report.expected_text(result, "read_mb_s") == "pelo USB: não avaliado"
+
+
+def test_setup_items_never_lower_health():
+    drive = probe.parse_drive(DRIVE_ROWS[1])
+    drive.bus_type, drive.media_type = "SATA", "SSD"
+    drive.volumes[0].free_gb = 1.0  # almost full
+    ps = FakePowerShell(
+        {
+            "Get-StorageReliabilityCounter": [{"Wear": 5, "PowerOnHours": 100}],
+            "DisableDeleteNotify": [{"Output": "NTFS DisableDeleteNotify = 1"}],
+        }
+    )
+    result = run_disk_test(ps, drive, DiskTestMode.HEALTH)
+    groups = {r.key: r.group for r in result.readings}
+    assert groups["trim"] == "care" and groups["free_C:"] == "care"
+    assert result.health_status is Status.OK and result.health_percent == 95
+    from extract.disktest import summary
+
+    view = summary.build(result)
+    assert view.situation == "Bom" and len(view.cares) == 2
+
+
+def test_bad_sectors_lower_health_percent_and_summary():
+    from extract.disktest import summary
+
+    drive = probe.parse_drive(DRIVE_ROWS[0])
+    result = run_disk_test(hdd_ps(), drive, DiskTestMode.HEALTH, drive_count=2)
+    assert result.health_percent is not None and result.health_percent < 100
+    view = summary.build(result)
+    assert view.situation in ("Atenção", "Substituir")
+    assert any("Setores defeituosos" in reason for reason in view.reasons)
+
+
+def test_health_percent_unknown_without_any_reading():
+    result = evaluate.finish(DiskTestReport())
+    assert result.health_percent is None
+    from extract.disktest import summary
+
+    assert summary.build(result).situation == "Sem dados"
+
+
+def test_time_powered_text():
+    from extract.disktest.summary import time_powered
+
+    assert time_powered(6520) == "cerca de 9 meses"
+    assert time_powered(48) == "cerca de 2 dias"
+    assert time_powered(40000) == "cerca de 4,6 anos"

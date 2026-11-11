@@ -100,6 +100,10 @@ class Reading:
     value: str
     status: Status = Status.OK
     note: str = ""
+    # "health": a sign of the drive's own condition (counts for the health status);
+    # "care": usage or setup (space, TRIM, cable, hours) that never means a failing drive;
+    # "info": something that could not be read.
+    group: str = "health"
 
 
 @dataclass
@@ -112,6 +116,9 @@ class DiskTestReport:
     performance: dict[str, Metric] = field(default_factory=dict)
     performance_error: str = ""
     health_status: Status = Status.UNKNOWN
+    health_percent: int | None = None  # 0-100, same idea as Hard Disk Sentinel's "Health"
+    life_left: int | None = None  # SSD rated life left, percent
+    power_on_hours: int | None = None
     performance_status: Status = Status.UNKNOWN
     score: int | None = None  # 0-100, health and performance together
     verdict: str = ""
@@ -122,6 +129,11 @@ class DiskTestReport:
         default_factory=lambda: datetime.now(timezone.utc).astimezone().isoformat("T", "seconds")
     )
     tool_version: str = ""
+
+    @property
+    def over_usb(self) -> bool:
+        """Speed measured through a USB adapter: it shows the link, not the drive."""
+        return self.drive.bus_type.upper() == "USB"
 
     @property
     def overall_status(self) -> Status:

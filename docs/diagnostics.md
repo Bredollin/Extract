@@ -206,12 +206,35 @@ the test with "O disco não respondeu". USB drives are opened without
 Speed uses the scan's disk benchmark (`benchmarks/disk.py`) on the chosen volume: the temp
 folder for the system volume (its root needs admin), the volume root for the others. "Só
 saúde" writes nothing. Results are compared with `DISK_EXPECTATIONS` for the drive type; a
-value below the minimum is a warning, below half of it critical (never critical over USB).
+value below the minimum is a warning, below half of it critical. Over USB the adapter and
+port set the speed (a SATA SSD reads ~22 MB/s on USB 2.0), so the drive is not judged by it:
+performance stays "unknown", there are no bars, it does not count in the score, and a read
+below 45 MB/s adds the tip to use a USB 3 port or SATA.
 
-Score (0-100): health starts at 100, −15 per warning and −45 per critical reading;
-performance is the mean of measured/typical (capped at 100%) for sequential read and write
-and random read; the score is 60% health + 40% performance, capped at 40 when health is
+Readings have a group. "health" is the drive's own condition (Windows assessment, failure
+prediction, temperature, life used, uncorrected errors, bad sectors); only these set the
+health status. "care" is usage or setup (free space, TRIM, alignment, CRC/cable, power-on
+hours, worst latency): shown and recommended, never a "failing drive". "info" is something
+that could not be read.
+
+Health percent (0-100, the same idea as Hard Disk Sentinel's "Health"): SSD life left (100
+when unknown), minus reallocated sectors (5/196, 1 point each, max 40), pending and
+uncorrectable sectors (197, 198: 3 each, max 40), spin retries and end-to-end errors (10,
+184: 10 each, max 30) and uncorrected errors (187 or the reliability counters: 2 each, max
+30). Capped at 10 when an attribute is below its threshold or failure is predicted, at 20
+when Windows says Unhealthy and 60 when Warning. None when nothing about the drive could be
+read.
+
+Score (0-100): the health part is the lower of the health percent and 100 −15 per warning
+and −45 per critical health reading, then −5 per care warning; performance is the mean of
+measured/typical (capped at 100%) for sequential read and write and random read; the score
+is 60% health + 40% performance (health only over USB), capped at 40 when health is
 critical.
+
+Summary ("Resumo" tab and the top of the PDF, `disktest/summary.py`): situation "Substituir"
+(critical health or ≤ 30%), "Atenção" (warning or ≤ 60%), "Bom", or "Sem dados"; the health
+readings behind it; health %, life left, hours on, temperature; the speed in words; the
+care items; the first three recommendations.
 
 ## Analysis
 
