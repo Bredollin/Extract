@@ -13,6 +13,7 @@ from extract.core.powershell import PowerShellRunner
 from extract.core.progress import CancelToken, ProgressCallback, no_progress, sub_progress
 
 from . import evaluate, probe
+from .isolated import run_disk_isolated
 from .models import DiskTestMode, DiskTestReport, DriveEntry
 
 log = logging.getLogger(__name__)
@@ -41,7 +42,7 @@ def run_disk_test(
     drive_count: int = 1,
     progress: ProgressCallback = no_progress,
     cancel: CancelToken | None = None,
-    benchmark=disk_bench.run_disk,
+    benchmark=run_disk_isolated,
 ) -> DiskTestReport:
     """Test one physical drive. `volume` ("D:") picks where the speed test writes."""
     cancel = cancel or CancelToken()
@@ -76,12 +77,15 @@ def run_disk_test(
             report.performance_error = "O disco não tem unidade com letra para gravar o teste."
         else:
             report.tested_volume = letter
-            log.info("Disk test: speed test on %s (%s)", letter, mode)
+            usb = drive.bus_type.upper() == "USB"
+            log.info("Disk test: speed test on %s (%s, usb=%s)", letter, mode, usb)
+            progress(health_end, f"Disco: criando o arquivo de teste em {letter}")
             results = benchmark(
                 sub_progress(progress, health_end, 1.0),
                 cancel,
                 _SIZES[mode],
                 bench_folder(letter),
+                write_through=not usb,
             )
             errors = [r.error for r in results if r.error]
             metrics: dict[str, Metric] = {}
