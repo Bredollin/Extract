@@ -34,6 +34,7 @@ the CLI call it and never talk to the stages directly.
 | `health/` | Current state checks: disk health and free space, memory pressure, CPU load, startup programs, event log errors, uptime, power plan, network reachability. |
 | `benchmarks/` | Performance tests: CPU (single and multi-core, throttling under sustained load), memory bandwidth, disk sequential and random I/O. |
 | `analysis/` | Rules that combine inventory, health and benchmarks into ranked `Finding`s. |
+| `disktest/` | The "Teste de disco" page logic, independent of the scan: drive listing and raw SMART (`probe.py`, `smart.py`), evaluation into readings, score and verdict (`evaluate.py`), the run (`runner.py`, reusing `benchmarks/disk.py`) and its JSON/PDF (`report.py`). |
 | `reports/` | One JSON file per scan, consolidated per client into Excel and PDF. |
 | `gui/` | PySide6 desktop app. |
 | `cli.py` | Command-line interface for scripted use. |

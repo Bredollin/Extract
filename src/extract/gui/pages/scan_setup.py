@@ -13,6 +13,7 @@ from extract.gui.theme import Space
 from extract.gui.widgets.card import Card
 from extract.gui.widgets.common import ElidedLabel, button, divider, hbox, label, vbox
 from extract.gui.widgets.toggle import ToggleSwitch
+from extract.reports.paths import is_client_folder
 
 LAST_CLIENT_KEY = "scan/last_client"
 LAST_GROUP_KEY = "scan/last_group"
@@ -66,7 +67,9 @@ class ScanSetupCard(Card):
 
     def refresh_clients(self) -> None:
         root = settings.reports_root()
-        names = sorted(p.name for p in root.iterdir() if p.is_dir()) if root.is_dir() else []
+        names = (
+            sorted(p.name for p in root.iterdir() if is_client_folder(p)) if root.is_dir() else []
+        )
         current = str(settings.value(LAST_CLIENT_KEY, "")) or self.client_combo.currentText()
         self.client_combo.blockSignals(True)
         self.client_combo.clear()

@@ -5,6 +5,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this
 project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-11-11
+
+### Added
+
+- "Teste de disco" page: tests one physical drive at a time (SSD NVMe/SATA, HDD, USB).
+  - Health: Windows status, SMART failure prediction, raw ATA SMART attributes (reallocated,
+    pending and uncorrectable sectors, CRC errors, power-on hours, power cycles, temperature,
+    SSD life) with the drive's own thresholds, reliability counters (temperature and its
+    maximum, wear, uncorrected errors, worst read/write/flush latency), TRIM, 4 KiB partition
+    alignment and free space per volume.
+  - Speed on any volume of the drive (quick 128 MB or full 1 GB): sequential read/write,
+    random 4 KiB read/write IOPS, average and 99th percentile latency, compared with the
+    minimum and typical values for the drive type. "Só saúde" mode writes nothing.
+  - 0-100 score, verdict and recommendations; saved as JSON plus a one-page PDF in
+    `Relatorios/teste-de-disco/`.
+- `extract-cli disk` (`--list`, `--disk N`, `--volume D:`, `--mode health|quick|full`).
+- Disk benchmark: 99th percentile latency of random reads and writes (`read_p99_ms`,
+  `write_p99_ms`) and an optional target folder.
+
 ## [2.2.0] - 2026-11-04
 
 ### Added

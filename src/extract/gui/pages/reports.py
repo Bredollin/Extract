@@ -25,6 +25,7 @@ from extract.gui.widgets.empty_state import EmptyState
 from extract.gui.widgets.page_header import PageHeader
 from extract.gui.widgets.status_chip import StatusChip
 from extract.gui.widgets.verdict_banner import find_verdict
+from extract.reports.paths import is_client_folder
 from extract.reports.summary import group_label, windows_edition, windows_feature_version
 
 CHIP_TEXT_WIDTH = 240
@@ -34,7 +35,7 @@ COLUMNS = ("Máquina", "Grupo", "Modelo", "Windows", "Inventário", "Situação"
 def client_folders(root: Path) -> list[Path]:
     if not root.is_dir():
         return []
-    return sorted((p for p in root.iterdir() if p.is_dir()), key=lambda p: p.name.lower())
+    return sorted((p for p in root.iterdir() if is_client_folder(p)), key=lambda p: p.name.lower())
 
 
 class ReportsPage(QWidget):

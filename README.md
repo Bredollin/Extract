@@ -41,6 +41,11 @@ evidence behind each recommendation.
 - **Benchmarks**: CPU single-core, multi-core and sustained load (detects thermal
   throttling), memory bandwidth, disk sequential and 4 KiB random I/O bypassing the Windows
   file cache. Full mode takes about 1.5 to 2 minutes; quick mode about 15 to 25 seconds.
+- **Disk test page** ("Teste de disco"): one physical drive at a time. Health from Windows,
+  raw SMART attributes (bad and pending sectors, CRC errors, hours, temperature, SSD life)
+  and reliability counters, TRIM and partition alignment; speed on any of its volumes
+  (sequential, random 4 KiB, average and 99th percentile latency) against what the drive
+  type should deliver; a 0-100 score, verdict, recommendations and a PDF.
 - **Root-cause analysis and verdict**: 26 rules combine inventory, health and benchmark data
   into findings ranked by severity, each with its evidence and a recommendation. A verdict
   sums them up: replace the machine, fix a hardware fault first, upgrade (naming the parts),
@@ -62,6 +67,8 @@ evidence behind each recommendation.
 | ![Scan in progress](docs/images/diagnostico.png) | ![Performance tab](docs/images/desempenho.png) |
 | **Client reports** | **Light theme** |
 | ![Reports page](docs/images/relatorios.png) | ![Results in the light theme](docs/images/resultados-claro.png) |
+| **Disk test** | |
+| ![Disk test page](docs/images/teste-de-disco.png) | |
 
 The screenshots use the built-in demo data (fictitious machines).
 
@@ -98,6 +105,10 @@ extract-cli scan --only storage --no-health --json-only
 
 # Inventory and health only, no benchmarks
 extract-cli scan --no-benchmarks
+
+# Disk test: list drives, then test disk 1 (health + quick speed test on D:)
+extract-cli disk --list
+extract-cli disk --disk 1 --volume D: --mode quick
 
 # Rebuild Excel and PDF from a folder of JSON reports
 extract-cli export reports/Clinica-Exemplo
@@ -185,6 +196,7 @@ Extract/
 │   ├── health/        # system health checks
 │   ├── benchmarks/    # CPU, memory and disk tests
 │   ├── analysis/      # rules, reference values, verdict
+│   ├── disktest/      # disk test page logic: SMART, evaluation, PDF
 │   ├── reports/       # JSON storage, Excel, PDF, default report paths
 │   ├── gui/           # PySide6 app (pages, widgets, themes, icons, demo data)
 │   ├── cli.py         # extract-cli

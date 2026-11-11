@@ -1,4 +1,4 @@
-"""Command-line interface: `extract-cli scan` and `extract-cli export`.
+"""Command-line interface: `extract-cli scan`, `extract-cli disk` and `extract-cli export`.
 
 The scan runs in a worker thread so Ctrl+C in the main thread can set the `CancelToken`
 and let the pipeline stop at its next checkpoint, instead of killing it mid-benchmark and
@@ -18,6 +18,7 @@ from typing import TextIO
 from extract import __version__
 from extract.core.models import Category, MachineReport
 from extract.core.pipeline import ScanOptions, run_scan
+from extract.core.powershell import PowerShell, PowerShellRunner
 from extract.core.progress import Cancelled, CancelToken
 from extract.reports import export_excel, export_pdf, load_folder, save_report
 from extract.reports.paths import client_folder
@@ -70,6 +71,20 @@ def build_parser() -> argparse.ArgumentParser:
         "--json-only", action="store_true", help="salva só o JSON, sem gerar Excel e PDF"
     )
 
+    disk = commands.add_parser("disk", help="teste de SSD/HD: saúde, SMART e desempenho")
+    disk.add_argument("--list", action="store_true", help="só lista os discos encontrados")
+    disk.add_argument(
+        "--disk", type=int, metavar="N", help="número do disco (padrão: o disco do sistema)"
+    )
+    disk.add_argument("--volume", default="", metavar="D:", help="unidade do teste de velocidade")
+    disk.add_argument(
+        "--mode",
+        choices=("health", "quick", "full"),
+        default="quick",
+        help="health = só saúde; quick = + desempenho rápido; full = + desempenho completo",
+    )
+    disk.add_argument("--output", type=Path, help="pasta do JSON e do PDF")
+
     export = commands.add_parser("export", help="gera Excel e PDF a partir de uma pasta")
     export.add_argument("folder", type=Path, metavar="PASTA", help="pasta com os JSON")
     export.add_argument("--excel", type=Path, metavar="ARQUIVO", help="caminho do .xlsx")
@@ -97,6 +112,8 @@ def main(argv: Sequence[str] | None = None) -> int:
     try:
         if args.command == "scan":
             return _scan(args)
+        if args.command == "disk":
+            return _disk(args)
         return _export(args.folder, args.excel, args.pdf)
     except KeyboardInterrupt:
         print("\nOperação cancelada.", file=sys.stderr)
@@ -221,6 +238,94 @@ def print_findings(report: MachineReport, stream: TextIO | None = None) -> None:
         print(f"  [{finding.severity.label}] {finding.title}", file=stream)
         if finding.recommendation:
             print(f"      -> {finding.recommendation}", file=stream)
+
+
+# --- disk --------------------------------------------------------------------------
+
+
+def _disk(args: argparse.Namespace, ps: PowerShellRunner | None = None) -> int:
+    from extract.disktest import list_drives, run_disk_test
+    from extract.disktest import report as disk_report
+
+    ps = ps or PowerShell()
+    drives = list_drives(ps)
+    if not drives:
+        print("Erro: nenhum disco físico encontrado.", file=sys.stderr)
+        return EXIT_ERROR
+    if args.list:
+        for drive in drives:
+            system = " [sistema]" if drive.is_system else ""
+            print(f"{drive.title} - {drive.kind_label}, {drive.size_gb:.0f} GB{system}")
+        return EXIT_OK
+
+    if args.disk is None:
+        drive = drives[0]
+    else:
+        drive = next((d for d in drives if d.number == args.disk), None)
+        if drive is None:
+            print(f"Erro: disco {args.disk} não encontrado (use --list).", file=sys.stderr)
+            return EXIT_ERROR
+
+    progress = ProgressLine(sys.stderr)
+    cancel = CancelToken()
+    try:
+        result = _run_cancellable(
+            lambda: run_disk_test(
+                ps, drive, args.mode, args.volume.upper(), len(drives), progress, cancel
+            ),
+            progress,
+            cancel,
+        )
+    except Cancelled:
+        progress.finish()
+        print("Teste cancelado.", file=sys.stderr)
+        return EXIT_CANCELLED
+    progress.finish()
+
+    score = "?" if result.score is None else result.score
+    print(f"\n{drive.title} - nota {score}/100")
+    print(result.verdict)
+    for reading in result.readings:
+        note = f" ({reading.note})" if reading.note else ""
+        print(f"  [{reading.status.label}] {reading.label}: {reading.value}{note}")
+    if result.performance_error:
+        print(f"  Desempenho: {result.performance_error}")
+    for key, label, unit, decimals in disk_report.PERFORMANCE_ROWS:
+        metric = result.performance.get(key)
+        if metric is not None:
+            print(f"  {label}: {metric.value:.{decimals}f} {unit}")
+    for tip in result.recommendations:
+        print(f"  -> {tip}")
+    json_path, pdf_path = disk_report.save(result, args.output)
+    print(f"Resultado salvo em {json_path} e {pdf_path}")
+    return EXIT_OK
+
+
+def _run_cancellable(work, progress: ProgressLine, cancel: CancelToken):
+    """Run `work()` in a thread so Ctrl+C can cancel it cleanly (temp file deleted)."""
+    results: list[object] = []
+    errors: list[BaseException] = []
+
+    def target() -> None:
+        try:
+            results.append(work())
+        except BaseException as exc:
+            errors.append(exc)
+
+    worker = threading.Thread(target=target, name="extract-disk", daemon=True)
+    worker.start()
+    try:
+        while worker.is_alive():
+            worker.join(0.2)
+    except KeyboardInterrupt:
+        progress.finish()
+        print("Cancelando, aguarde o passo atual terminar...", file=sys.stderr)
+        cancel.cancel()
+        worker.join()
+        raise Cancelled() from None
+    if errors:
+        raise errors[0]
+    return results[0]
 
 
 # --- export ------------------------------------------------------------------------

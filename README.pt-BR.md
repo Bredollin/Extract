@@ -45,6 +45,11 @@ recomendação.
   contínua (detecta perda de velocidade por temperatura), velocidade da memória, disco
   sequencial e aleatório de 4 KiB sem o cache do Windows. O modo completo leva de 1,5 a
   2 minutos; o modo rápido, de 15 a 25 segundos.
+- **Teste de disco** (página própria): um disco físico por vez. Saúde pelo Windows,
+  atributos SMART brutos (setores defeituosos e pendentes, erros de CRC, horas, temperatura,
+  vida útil do SSD) e contadores de confiabilidade, TRIM e alinhamento das partições;
+  velocidade em qualquer unidade do disco (sequencial, aleatório 4 KiB, latência média e
+  pior 1%) comparada com o esperado para o tipo; nota de 0 a 100, veredito, recomendações e PDF.
 - **Análise da causa e veredito**: 26 regras cruzam inventário, saúde e testes e geram
   achados ordenados por gravidade, cada um com a evidência e uma recomendação. O veredito
   resume tudo: trocar a máquina, corrigir um defeito de hardware antes, fazer upgrade
@@ -66,6 +71,8 @@ recomendação.
 | ![Diagnóstico em andamento](docs/images/diagnostico.png) | ![Aba Desempenho](docs/images/desempenho.png) |
 | **Relatórios do cliente** | **Tema claro** |
 | ![Página Relatórios](docs/images/relatorios.png) | ![Resultados no tema claro](docs/images/resultados-claro.png) |
+| **Teste de disco** | |
+| ![Página Teste de disco](docs/images/teste-de-disco.png) | |
 
 As telas usam os dados de demonstração embutidos (máquinas fictícias).
 
@@ -102,6 +109,10 @@ extract-cli scan --only storage --no-health --json-only
 
 # Só inventário e saúde, sem testes de desempenho
 extract-cli scan --no-benchmarks
+
+# Teste de disco: listar os discos e testar o disco 1 (saúde + velocidade rápida em D:)
+extract-cli disk --list
+extract-cli disk --disk 1 --volume D: --mode quick
 
 # Gerar Excel e PDF de novo a partir de uma pasta de JSON
 extract-cli export reports/Clinica-Exemplo
@@ -192,6 +203,7 @@ Extract/
 │   ├── health/        # verificações de saúde
 │   ├── benchmarks/    # testes de processador, memória e disco
 │   ├── analysis/      # regras, valores de referência, veredito
+│   ├── disktest/      # teste de disco: SMART, avaliação, PDF
 │   ├── reports/       # JSON, Excel, PDF, pastas padrão dos relatórios
 │   ├── gui/           # aplicativo PySide6 (páginas, widgets, temas, ícones, dados de demonstração)
 │   ├── cli.py         # extract-cli

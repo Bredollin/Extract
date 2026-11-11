@@ -14,6 +14,12 @@ from pathlib import Path
 from extract.reports.storage import safe_filename
 
 NO_CLIENT_FOLDER = "sem-cliente"
+# Disk tests are saved here, beside the client folders; client lists must skip it.
+DISK_TEST_FOLDER = "teste-de-disco"
+
+
+def is_client_folder(path: Path) -> bool:
+    return path.is_dir() and path.name != DISK_TEST_FOLDER
 
 
 def app_dir() -> Path:

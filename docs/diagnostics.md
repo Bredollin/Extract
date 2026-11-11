@@ -141,6 +141,7 @@ Worst case is about 56 s (full) on a disk slow enough to hit both sequential cap
 | | `uncached` | (none) | 1 = OS cache bypassed (Windows), 0 = buffered fallback |
 | `storage.random` | `read_iops`, `write_iops` | IOPS | 4 KiB operations per second at queue depth 1 |
 | | `read_latency_ms`, `write_latency_ms` | ms | average time per operation |
+| | `read_p99_ms`, `write_p99_ms` | ms | 99th percentile (nearest rank): stalls the average hides |
 | | `uncached` | (none) | as above |
 
 Free space is checked first: the file shrinks so that at least 1 GiB stays free on the volume,
@@ -157,6 +158,48 @@ Limitations:
   and IOPS are somewhat optimistic.
 - Write-through random writes on consumer SSDs without power-loss protection can be much
   slower than reads; this is real behavior, not an error.
+
+## Disk test page (`extract.disktest`)
+
+A separate page (and `extract-cli disk`) that tests one physical drive in depth. It does not
+touch the scan reports: results go to `<reports root>/teste-de-disco/` as
+`<host>_disco<N>_<stamp>.disco.json` plus a PDF.
+
+Health readings, all read-only:
+
+| Reading | Source | Status |
+|---|---|---|
+| Windows assessment | `Get-PhysicalDisk.HealthStatus` | Warning / Unhealthy as reported |
+| SMART failure prediction | `MSStorageDriver_FailurePredictStatus` (admin) | critical when predicted |
+| Temperature | reliability counter or SMART 194/190 (low byte) | HDD 50/60 °C, SSD 70/80 °C |
+| Life used | reliability `Wear`, or 100 − normalized SMART 231/233/177/202/173 on SSDs | 70% / 90% |
+| Power-on hours, power cycles | reliability counters or SMART 9/12 | HDD ≥ 40,000 h is a warning |
+| Uncorrected errors | `Read/WriteErrorsUncorrected` | 1 / 50 |
+| Bad sectors | SMART 5 + 197 + 198 raw | per attribute (below) |
+| CRC errors | SMART 199 raw | ≥ 50 warning (cable/port, never critical) |
+| Worst latency | `Read/Write/FlushLatencyMax` | ≥ 2,000 ms warning |
+| TRIM (SSDs) | `fsutil behavior query DisableDeleteNotify` | off is a warning |
+| Alignment | partition offset multiple of 4 KiB | misaligned is a warning |
+| Free space per volume | `Get-Volume` | ≤ 20% warning (never critical: not a fault) |
+
+Raw SMART comes from `MSStorageDriver_FailurePredictData.VendorSpecific` (ATA/SATA only,
+admin only): 30 entries of 12 bytes after a 2-byte header (id, flags, current, worst,
+6-byte raw). Thresholds come from `MSStorageDriver_FailurePredictThresholds`. An attribute
+is critical when `current <= threshold` (the drive's own failure criterion); raw counters
+5, 196 (≥ 1 warning, ≥ 50 critical), 197, 198 (≥ 1 / ≥ 10), 187 (≥ 1 / ≥ 20), 10 (≥ 1 / ≥ 10)
+and 184 (≥ 1 critical) should stay at zero. WMI instances are matched to the drive by the
+product words in `InstanceName`. NVMe drives have no ATA SMART; their health comes from the
+reliability counters.
+
+Speed uses the scan's disk benchmark (`benchmarks/disk.py`) on the chosen volume: the temp
+folder for the system volume (its root needs admin), the volume root for the others. "Só
+saúde" writes nothing. Results are compared with `DISK_EXPECTATIONS` for the drive type; a
+value below the minimum is a warning, below half of it critical (never critical over USB).
+
+Score (0-100): health starts at 100, −15 per warning and −45 per critical reading;
+performance is the mean of measured/typical (capped at 100%) for sequential read and write
+and random read; the score is 60% health + 40% performance, capped at 40 when health is
+critical.
 
 ## Analysis
 

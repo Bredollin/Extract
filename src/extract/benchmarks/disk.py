@@ -224,6 +224,8 @@ class _Measurements:
     write_iops: float = 0.0
     read_latency_ms: float = 0.0
     write_latency_ms: float = 0.0
+    read_p99_ms: float = 0.0
+    write_p99_ms: float = 0.0
 
 
 class _DiskTest:
@@ -271,8 +273,14 @@ class _DiskTest:
             self._report(1, offset / written, "Disco: leitura sequencial")
         return offset / MIB / (time.perf_counter() - start)
 
-    def random_io(self, buffer: _AlignedBuffer, written: int, write: bool) -> tuple[float, float]:
-        """Queue-depth-1 4 KiB random I/O for a fixed time. Returns (IOPS, average ms)."""
+    def random_io(
+        self, buffer: _AlignedBuffer, written: int, write: bool
+    ) -> tuple[float, float, float]:
+        """Queue-depth-1 4 KiB random I/O for a fixed time.
+
+        Returns (IOPS, average ms, 99th percentile ms). The percentile shows the stalls an
+        average hides: a drive that is usually fast but freezes now and then.
+        """
         if write:
             phase, message, operation = 3, "Disco: gravação aleatória", self.file.write_at
             # The unbuffered Windows handle already writes through; elsewhere each write is
@@ -286,20 +294,25 @@ class _DiskTest:
         blocks = written // BLOCK
         duration = self.sizes.random_s
         ops = 0
-        start = time.perf_counter()
+        latencies: list[float] = []
+        clock = time.perf_counter
+        start = clock()
         elapsed = 0.0
         while elapsed < duration:
-            # Checking the clock and the cancel flag every few requests keeps their cost
-            # out of the measurement.
+            # Checking the cancel flag every few requests keeps its cost out of the
+            # measurement; the per-request clock reads cost well under a microsecond.
             for _ in range(16):
-                operation(rng.randrange(blocks) * BLOCK, buffer, BLOCK)
+                offset = rng.randrange(blocks) * BLOCK
+                began = clock()
+                operation(offset, buffer, BLOCK)
                 if sync:
                     sync()
+                latencies.append(clock() - began)
             ops += 16
             self.cancel.raise_if_cancelled()
             elapsed = time.perf_counter() - start
             self._report(phase, elapsed / duration, message)
-        return ops / elapsed, elapsed / ops * 1000
+        return ops / elapsed, elapsed / ops * 1000, percentile(latencies, 99) * 1000
 
     def run(self) -> _Measurements:
         result = _Measurements()
@@ -308,8 +321,12 @@ class _DiskTest:
             written, result.write_mb_s = self.sequential_write(buffer)
             result.file_mb = written / MIB
             result.read_mb_s = self.sequential_read(buffer, written)
-            result.read_iops, result.read_latency_ms = self.random_io(buffer, written, False)
-            result.write_iops, result.write_latency_ms = self.random_io(buffer, written, True)
+            result.read_iops, result.read_latency_ms, result.read_p99_ms = self.random_io(
+                buffer, written, False
+            )
+            result.write_iops, result.write_latency_ms, result.write_p99_ms = self.random_io(
+                buffer, written, True
+            )
         finally:
             buffer.close()
         return result
@@ -349,6 +366,8 @@ def _results(m: _Measurements, uncached: bool) -> list[BenchmarkResult]:
             "write_latency_ms": Metric(
                 round(m.write_latency_ms, 3), "ms", "Tempo médio de gravação"
             ),
+            "read_p99_ms": Metric(round(m.read_p99_ms, 3), "ms", "Pior leitura (99%)"),
+            "write_p99_ms": Metric(round(m.write_p99_ms, 3), "ms", "Pior gravação (99%)"),
             "uncached": flag,
         },
     )
@@ -367,19 +386,40 @@ def _failed(message: str) -> list[BenchmarkResult]:
     ]
 
 
+def percentile(values: list[float], pct: float) -> float:
+    """Nearest-rank percentile (0 for an empty list)."""
+    if not values:
+        return 0.0
+    ordered = sorted(values)
+    rank = max(1, min(len(ordered), round(pct / 100 * len(ordered) + 0.4999)))
+    return ordered[rank - 1]
+
+
 def run_disk(
-    progress: ProgressCallback, cancel: CancelToken, sizes: DiskSizes
+    progress: ProgressCallback,
+    cancel: CancelToken,
+    sizes: DiskSizes,
+    folder: str | None = None,
 ) -> list[BenchmarkResult]:
-    """Run both disk benchmarks; returns [storage.sequential, storage.random]."""
-    folder = tempfile.gettempdir()
-    free_mb = shutil.disk_usage(folder).free / MIB
+    """Run both disk benchmarks; returns [storage.sequential, storage.random].
+
+    `folder` picks the volume to test (default: the temp folder, on the system volume).
+    """
+    folder = folder or tempfile.gettempdir()
+    try:
+        free_mb = shutil.disk_usage(folder).free / MIB
+    except OSError as exc:
+        return _failed(f"Unidade indisponível para o teste: {exc.strerror or exc}")
     file_mb = choose_file_mb(sizes.file_mb, free_mb)
     if not file_mb:
         return _failed(
-            f"Espaço livre insuficiente no disco do sistema para o teste ({free_mb:.0f} MB livres)."
+            f"Espaço livre insuficiente na unidade para o teste ({free_mb:.0f} MB livres)."
         )
 
-    fd, path = tempfile.mkstemp(prefix="extract-bench-", suffix=".tmp", dir=folder)
+    try:
+        fd, path = tempfile.mkstemp(prefix="extract-bench-", suffix=".tmp", dir=folder)
+    except OSError as exc:
+        return _failed(f"Sem permissão para gravar o arquivo de teste: {exc.strerror or exc}")
     os.close(fd)
     try:
         file = _open_test_file(path)
