@@ -371,3 +371,4 @@ def test_disk_test_on_real_windows(tmp_path):
     assert result.score is not None
     json_path, pdf_path = report.save(result, tmp_path)
     assert report.load_json(json_path).drive.number == drives[0].number
+    assert pdf_path.stat().st_size > 0
