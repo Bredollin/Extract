@@ -11,7 +11,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QObject, QThread, Signal, Slot
+from PySide6.QtCore import QObject, Qt, QThread, Signal, Slot
 
 from extract.core.models import MachineReport
 from extract.core.progress import Cancelled, CancelToken
@@ -85,8 +85,9 @@ def start_in_thread(worker: ScanWorker | TaskWorker) -> QThread:
     thread = QThread()
     worker.moveToThread(thread)
     thread.started.connect(worker.run)
+    # Direct: QThread.quit is thread-safe, and a queued call would wait for the UI loop.
     for signal in (worker.finished, worker.failed, worker.cancelled):
-        signal.connect(thread.quit)
+        signal.connect(thread.quit, Qt.ConnectionType.DirectConnection)
     thread.start()
     return thread
 
