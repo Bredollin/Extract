@@ -130,7 +130,7 @@ class _Win32File:
     _FILE_FLAG_DELETE_ON_CLOSE = 0x04000000
     _INVALID_HANDLE = ctypes.c_void_p(-1).value
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, write_through: bool = True) -> None:
         from ctypes import wintypes
 
         k32 = ctypes.WinDLL("kernel32", use_last_error=True)  # type: ignore[attr-defined]
@@ -168,7 +168,7 @@ class _Win32File:
             None,
             self._CREATE_ALWAYS,
             self._FILE_FLAG_NO_BUFFERING
-            | self._FILE_FLAG_WRITE_THROUGH
+            | (self._FILE_FLAG_WRITE_THROUGH if write_through else 0)
             | self._FILE_FLAG_DELETE_ON_CLOSE,
             None,
         )
@@ -205,8 +205,8 @@ class _Win32File:
         self._k32.CloseHandle(self._handle)
 
 
-def _open_test_file(path: str) -> _TestFile:
-    return _Win32File(path) if sys.platform == "win32" else _PosixFile(path)
+def _open_test_file(path: str, write_through: bool = True) -> _TestFile:
+    return _Win32File(path, write_through) if sys.platform == "win32" else _PosixFile(path)
 
 
 def choose_file_mb(target_mb: int, free_mb: float) -> int:
@@ -253,6 +253,7 @@ class _DiskTest:
         offset = 0
         start = time.perf_counter()
         deadline = start + self.sizes.sequential_max_s
+        self._report(0, 0.0, "Disco: gravação sequencial")
         while offset < self.size and time.perf_counter() < deadline:
             self.cancel.raise_if_cancelled()
             self.file.write_at(offset, buffer, CHUNK)
@@ -400,10 +401,14 @@ def run_disk(
     cancel: CancelToken,
     sizes: DiskSizes,
     folder: str | None = None,
+    write_through: bool = True,
 ) -> list[BenchmarkResult]:
     """Run both disk benchmarks; returns [storage.sequential, storage.random].
 
     `folder` picks the volume to test (default: the temp folder, on the system volume).
+    `write_through=False` skips FILE_FLAG_WRITE_THROUGH (forced unit access): some USB
+    bridges stall for minutes on FUA writes, so USB drives are tested without it and
+    flushed at the end of each write phase instead.
     """
     folder = folder or tempfile.gettempdir()
     try:
@@ -422,7 +427,7 @@ def run_disk(
         return _failed(f"Sem permissão para gravar o arquivo de teste: {exc.strerror or exc}")
     os.close(fd)
     try:
-        file = _open_test_file(path)
+        file = _open_test_file(path, write_through)
         try:
             measurements = _DiskTest(file, file_mb * MIB, sizes, progress, cancel).run()
         finally:

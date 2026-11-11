@@ -100,8 +100,8 @@ def fake_bench(results_metrics):
 
     calls = []
 
-    def bench(progress, cancel, sizes, folder):
-        calls.append((sizes, folder))
+    def bench(progress, cancel, sizes, folder, write_through=True):
+        calls.append((sizes, folder, write_through))
         progress(1.0, "done")
         return [
             BenchmarkResult("storage.sequential", Category.STORAGE, "seq", {
@@ -372,3 +372,92 @@ def test_disk_test_on_real_windows(tmp_path):
     json_path, pdf_path = report.save(result, tmp_path)
     assert report.load_json(json_path).drive.number == drives[0].number
     assert pdf_path.stat().st_size > 0
+
+
+def test_usb_drive_is_tested_without_write_through():
+    drive = probe.parse_drive(DRIVE_ROWS[0])
+    drive.bus_type = "USB"
+    bench = fake_bench({"read_mb_s": Metric(300, "MB/s", "")})
+    run_disk_test(FakePowerShell({}), drive, DiskTestMode.QUICK, benchmark=bench)
+    assert bench.calls[0][2] is False
+    drive.bus_type = "SATA"
+    run_disk_test(FakePowerShell({}), drive, DiskTestMode.QUICK, benchmark=bench)
+    assert bench.calls[1][2] is True
+
+
+# --- isolated benchmark ----------------------------------------------------------------------
+
+
+def hanging_bench(progress, cancel, sizes, folder, write_through=True):
+    """Child-process target that reports once, then blocks like a stuck disk."""
+    import time as _time
+    from pathlib import Path as _Path
+
+    (_Path(folder) / "extract-bench-stuck.tmp").write_bytes(b"x")
+    progress(0.1, "Disco: gravação sequencial")
+    _time.sleep(600)
+
+
+def quick_bench(progress, cancel, sizes, folder, write_through=True):
+    from extract.core.models import BenchmarkResult, Category
+
+    progress(0.5, "meio")
+    return [
+        BenchmarkResult(
+            "storage.sequential",
+            Category.STORAGE,
+            "seq",
+            {"read_mb_s": Metric(123.0, "MB/s", "x"), "uncached": Metric(1.0, "", "")},
+        )
+    ]
+
+
+def test_isolated_benchmark_returns_child_results(tmp_path):
+    from extract.disktest.isolated import run_disk_isolated
+
+    seen = []
+    results = run_disk_isolated(
+        lambda f, m: seen.append(m), CancelToken(), runner.disk_bench.QUICK, str(tmp_path),
+        target="test_disktest.quick_bench",
+    )  # fmt: skip
+    assert results[0].metrics["read_mb_s"].value == 123.0
+    assert seen == ["meio"]
+
+
+def test_isolated_benchmark_stops_a_stuck_disk_and_cleans_up(tmp_path):
+    from extract.disktest.isolated import run_disk_isolated
+
+    results = run_disk_isolated(
+        lambda f, m: None, CancelToken(), runner.disk_bench.QUICK, str(tmp_path),
+        stall_timeout_s=2, target="test_disktest.hanging_bench",
+    )  # fmt: skip
+    assert all("não respondeu por 2 s" in r.error for r in results)
+    assert not list(tmp_path.glob("extract-bench-*.tmp"))
+
+
+def test_isolated_benchmark_cancel_is_immediate(tmp_path):
+    import threading
+    import time as _time
+
+    from extract.disktest.isolated import run_disk_isolated
+
+    token = CancelToken()
+    threading.Timer(1.5, token.cancel).start()
+    began = _time.monotonic()
+    with pytest.raises(Cancelled):
+        run_disk_isolated(
+            lambda f, m: None, token, runner.disk_bench.QUICK, str(tmp_path),
+            target="test_disktest.hanging_bench",
+        )  # fmt: skip
+    assert _time.monotonic() - began < 10
+    assert not list(tmp_path.glob("extract-bench-*.tmp"))
+
+
+def test_isolated_benchmark_real_run(tmp_path):
+    from extract.disktest.isolated import run_disk_isolated
+
+    results = run_disk_isolated(
+        lambda f, m: None, CancelToken(), runner.disk_bench.QUICK, str(tmp_path)
+    )
+    assert [r.id for r in results] == ["storage.sequential", "storage.random"]
+    assert results[0].ok and results[1].metrics["read_p99_ms"].value >= 0

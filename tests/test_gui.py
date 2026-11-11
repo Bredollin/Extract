@@ -379,3 +379,39 @@ def test_disk_test_page_reports_listing_failure(window):
     window.show_page(DISK_TEST)
     assert wait_until(lambda: "Não foi possível listar" in page.message.text())
     assert not page.start_button.isEnabled()
+
+
+def test_disk_test_page_warns_when_the_disk_stops_answering(window, monkeypatch):
+    from extract.gui.pages import disk_test
+
+    page = window.disk_test
+    page._set_running(True, cancellable=True)
+    page._on_progress(0.25, "Disco: gravação sequencial")
+    now = disk_test.time.monotonic()
+    monkeypatch.setattr(disk_test.time, "monotonic", lambda: now + 42)
+    page._check_stall()
+    assert page.message.text().startswith("Disco sem resposta há 42 s")
+    assert "gravação sequencial" in page.message.text()
+    page._set_running(False)
+    assert not page._watchdog.isActive()
+
+
+def test_disk_test_progress_panel_follows_phases():
+    from extract.gui.pages.disk_test_progress import DiskTestProgress, step_for
+
+    assert step_for("Disco: lendo atributos SMART") == "health"
+    assert step_for("Disco: criando o arquivo de teste em D:") == "seq_write"
+    assert step_for("Disco: leitura aleatória") == "rnd_read"
+    assert step_for("Disco: teste concluído") is None
+    panel = DiskTestProgress()
+    panel.start("Disco 1: Teste (D:)", benchmarking=True)
+    panel.update(0.55, "Disco: leitura sequencial")
+    assert panel.percent.text() == "55%"
+    assert panel.steps.state("health") is StepState.DONE
+    assert panel.steps.state("seq_write") is StepState.DONE
+    assert panel.steps.state("seq_read") is StepState.RUNNING
+    assert panel.steps.state("rnd_write") is StepState.PENDING
+    panel.tick(75)
+    assert panel.elapsed.text() == "1:15"
+    panel.fail("Teste cancelado.")
+    assert panel.steps.state("seq_read") is StepState.FAILED

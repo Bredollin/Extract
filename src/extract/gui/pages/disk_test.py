@@ -5,10 +5,11 @@ and get a 0-100 score with a verdict and recommendations. Results can be saved a
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from pathlib import Path
 
-from PySide6.QtCore import QThread, QUrl, Signal
+from PySide6.QtCore import QThread, QTimer, QUrl, Signal
 from PySide6.QtGui import QDesktopServices
 from PySide6.QtWidgets import (
     QComboBox,
@@ -23,6 +24,7 @@ from extract.core.powershell import PowerShell, PowerShellRunner
 from extract.disktest import DiskTestMode, DiskTestReport, DriveEntry, list_drives, run_disk_test
 from extract.disktest import report as disk_report
 from extract.gui import formatting, settings
+from extract.gui.pages.disk_test_progress import DiskTestProgress
 from extract.gui.theme import STATUS_TONES, Space
 from extract.gui.widgets.card import Card
 from extract.gui.widgets.common import (
@@ -51,6 +53,10 @@ MODE_HINTS = {
     DiskTestMode.FULL: "Grava um arquivo temporário de 1 GB (apagado no fim). Cerca de 1 min.",
 }
 START_TEXT = "Testar disco"
+# Seconds without progress before the page says the disk is not answering. A single
+# request can block that long on a failing disk or a USB bridge; it cannot be interrupted,
+# so the page explains the wait instead of looking frozen.
+STALL_WARNING_S = 15
 WINDOWS_HEALTH = {"Healthy": "saudável", "Warning": "em alerta", "Unhealthy": "com falha"}
 # (metric key, typical-value attribute of DiskExpectation, factor) for the bars.
 BAR_REFERENCES = {
@@ -90,6 +96,13 @@ class DiskTestPage(QWidget):
         self._thread: QThread | None = None
         self._loaded = False
         self._busy = False
+        self._last_progress = 0.0
+        self._last_message = ""
+        self._watchdog = QTimer(self)
+        self._watchdog.setInterval(1000)
+        self._watchdog.timeout.connect(self._check_stall)
+        self._started = 0.0
+        self.live: DiskTestProgress | None = None
 
         column = vbox(Space.XL, (Space.XXL, Space.XL + 4, Space.XXL, Space.XL))
         column.addWidget(
@@ -259,17 +272,35 @@ class DiskTestPage(QWidget):
         ps_factory = self.ps_factory
         log.info("Disk test: disk %s, mode %s, volume %r", drive.number, mode, volume)
         self.bar.setValue(0)
+        self._started = time.monotonic()
+        self.live = DiskTestProgress()
+        subject = drive.title
+        if mode != DiskTestMode.HEALTH and volume:
+            subject += f"  ·  velocidade em {volume}"
+        self.live.start(subject, mode != DiskTestMode.HEALTH)
+        self._show_widget(self.live)
         self._run(
             lambda progress, cancel: run_disk_test(
                 ps_factory(), drive, mode, volume, count, progress, cancel
             ),
             self.show_report,
-            lambda error: self._idle(f"O teste falhou: {error}"),
+            self._on_test_failed,
             cancellable=True,
         )
+        self._worker.cancelled.connect(lambda: self._live_fail("Teste cancelado."))
+
+    def _live_fail(self, message: str) -> None:
+        if self.live is not None:
+            self.live.fail(message)
+
+    def _on_test_failed(self, error: str) -> None:
+        message = f"O teste falhou: {error}"
+        self._live_fail(message)
+        self._idle(message)
 
     def cancel(self) -> None:
         if self._worker is not None:
+            self._last_message = "cancelando, o arquivo de teste será apagado"
             self.message.setText("Cancelando… (o arquivo de teste será apagado)")
             self._worker.cancel()
 
@@ -296,10 +327,39 @@ class DiskTestPage(QWidget):
 
     def _on_progress(self, fraction: float, message: str) -> None:
         self.bar.setValue(int(min(max(fraction, 0.0), 1.0) * 1000))
+        self._last_progress = time.monotonic()
+        self._last_message = message
         self.message.setText(message)
+        self.message.setToolTip("")
+        if self.live is not None and self._busy:
+            self.live.update(fraction, message)
+
+    def stalled_seconds(self) -> float:
+        return time.monotonic() - self._last_progress if self._busy else 0.0
+
+    def _check_stall(self) -> None:
+        waited = self.stalled_seconds()
+        stalled = waited >= STALL_WARNING_S
+        text = f"Disco sem resposta há {waited:.0f} s ({self._last_message})" if stalled else ""
+        if self.live is not None:
+            self.live.tick(time.monotonic() - self._started, text)
+        if not stalled:
+            return
+        self.message.setText(text)
+        self.message.setToolTip(
+            "O Windows ainda espera o disco concluir uma leitura ou gravação. Disco com "
+            "defeito, cabo ou adaptador USB ruim costumam causar isso. Cancelar só vale "
+            "quando o disco responder."
+        )
 
     def _set_running(self, running: bool, cancellable: bool = False) -> None:
         self._busy = running
+        self._last_progress = time.monotonic()
+        self._last_message = self.message.text()
+        if running:
+            self._watchdog.start()
+        else:
+            self._watchdog.stop()
         for widget in (self.drive_combo, self.mode_combo, self.volume_combo, self.refresh_button):
             widget.setEnabled(not running)
         self.cancel_button.setVisible(running and cancellable)
@@ -317,6 +377,7 @@ class DiskTestPage(QWidget):
     # --- Results ----------------------------------------------------------------------
 
     def show_report(self, report: DiskTestReport) -> None:
+        self.live = None
         self.report = report
         self.saved_pdf = None
         self.bar.setValue(1000)
