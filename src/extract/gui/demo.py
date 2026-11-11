@@ -376,6 +376,76 @@ def load_into(window) -> None:
     window.reports.refresh_clients(folder)
     window.diagnostic.setup.set_folder(folder)
     window.open_report(build_demo_report(), paths[0])
+    load_disk_demo(window)
+
+
+def build_demo_drives():
+    """A typical office PC: Windows on an aging HDD plus a newer SATA SSD for data."""
+    from extract.disktest.models import DriveEntry, VolumeEntry
+
+    hdd = DriveEntry(
+        number=0, model="ST1000DM010-2EP102", serial_number="Z9A0DEMO", firmware="CC43",
+        bus_type="SATA", media_type="HDD", spindle_rpm=7200, size_gb=931.5,
+        partition_style="GPT", health_status="Healthy", is_system=True,
+        volumes=[VolumeEntry("C:", "", "NTFS", 930.0, 98.0, 1048576)],
+    )  # fmt: skip
+    ssd = DriveEntry(
+        number=1, model="Kingston SA400S37240G", serial_number="50026BDEMO", firmware="SBFK71E0",
+        bus_type="SATA", media_type="SSD", spindle_rpm=0, size_gb=223.6,
+        partition_style="GPT", health_status="Healthy",
+        volumes=[VolumeEntry("D:", "Dados", "NTFS", 223.0, 150.0, 1048576)],
+    )  # fmt: skip
+    return [hdd, ssd]
+
+
+def build_demo_disk_report():
+    """Disk test of the demo HDD: a few bad sectors, many hours and slow random reads."""
+    from extract.disktest import evaluate
+    from extract.disktest.models import DiskTestMode, DiskTestReport
+    from extract.disktest.smart import (
+        encode_attributes,
+        encode_thresholds,
+        parse_attributes,
+        parse_thresholds,
+    )
+
+    drive = build_demo_drives()[0]
+    data = encode_attributes(
+        [(1, 117, 99, 152_000_000), (3, 97, 96, 0), (4, 96, 96, 4_210), (5, 100, 100, 16),
+         (7, 84, 60, 240_000_000), (9, 53, 53, 41_350), (10, 100, 100, 0), (12, 96, 96, 4_180),
+         (187, 100, 100, 0), (188, 100, 100, 0), (194, 49, 55, 0x0000_0016_0000_0033),
+         (197, 100, 100, 8), (198, 100, 100, 0), (199, 200, 200, 0)]
+    )  # fmt: skip
+    thresholds = encode_thresholds([(1, 6), (3, 0), (5, 10), (7, 45), (10, 97), (187, 0)])
+    smart = parse_attributes(data, parse_thresholds(thresholds))
+    counters = {"Temperature": 51, "TemperatureMax": 55, "PowerOnHours": 41_350,
+                "StartStopCycleCount": 4_180, "ReadErrorsUncorrected": 0,
+                "WriteErrorsUncorrected": 0, "ReadLatencyMax": 1_850}  # fmt: skip
+    report = DiskTestReport(
+        drive=drive, mode=DiskTestMode.QUICK, tested_volume="C:", smart=smart, is_admin=True,
+        hostname="RECEPCAO-01", created_at="2026-11-11T10:48:12-03:00", tool_version=__version__,
+    )  # fmt: skip
+    report.readings = evaluate.health_readings(drive, counters, smart, False, None, True)
+    report.performance = {
+        "read_mb_s": _metric(118.4, "MB/s", "Leitura sequencial"),
+        "write_mb_s": _metric(104.9, "MB/s", "Gravação sequencial"),
+        "read_iops": _metric(71, "IOPS", "Leitura aleatória"),
+        "write_iops": _metric(142, "IOPS", "Gravação aleatória"),
+        "read_latency_ms": _metric(14.08, "ms", "Tempo médio de leitura"),
+        "write_latency_ms": _metric(7.04, "ms", "Tempo médio de gravação"),
+        "read_p99_ms": _metric(38.61, "ms", "Pior leitura (99%)"),
+        "write_p99_ms": _metric(24.9, "ms", "Pior gravação (99%)"),
+        "file_mb": _metric(128, "MB", "Tamanho do arquivo de teste"),
+    }
+    return evaluate.finish(report)
+
+
+def load_disk_demo(window) -> None:
+    page = window.disk_test
+    page._loaded = True  # skip the real drive listing
+    page.set_drives(build_demo_drives())
+    page.message.setText("2 discos encontrados")
+    page.show_report(build_demo_disk_report())
 
 
 def show_scan_preview(window) -> None:

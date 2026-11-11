@@ -112,3 +112,22 @@ LOSS_CRITICAL_PERCENT = 30.0
 DNS_WARNING_MS = 200.0
 WIFI_SIGNAL_WARNING_PERCENT = 40.0
 WIFI_LINK_WARNING_MBPS = 20.0
+
+# --- Disk test page (extract.disktest) -------------------------------------------------------
+
+# Temperature by drive kind (°C): HDDs age fast above 50 °C; SSD controllers throttle ~70+.
+DISKTEST_TEMPERATURE_C = {
+    "hdd": (50, 60),
+    "sata_ssd": (70, 80),
+    "nvme": (70, 80),
+    "": (60, 70),
+}
+DISKTEST_WEAR_PERCENT = (70, 90)  # share of rated life used: (warning, critical)
+DISKTEST_UNCORRECTED_ERRORS = (1, 50)
+DISKTEST_HDD_POWER_ON_HOURS_WARNING = 40000  # ~4.5 years running 24/7: past typical HDD life
+DISKTEST_MAX_LATENCY_WARNING_MS = 2000  # a single request this slow is a visible freeze
+DISKTEST_FREE_WARNING_PERCENT = 20  # free space at or below this slows Windows down
+# Results below this share of the minimum expectation are critical, not just a warning.
+DISKTEST_PERF_CRITICAL_SHARE = 0.5
+# Weight of health in the 0-100 score when performance was measured too.
+DISKTEST_HEALTH_WEIGHT = 0.6

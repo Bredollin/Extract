@@ -324,3 +324,58 @@ def test_hardware_sections_show_mac(window):
         title: rows for title, _icon, rows in hardware_sections(demo.build_demo_report().inventory)
     }
     assert any("MAC" in value for _key, value in sections["Rede"])
+
+
+# --- Teste de disco page -------------------------------------------------------------------
+
+
+def _disk_page_ps():
+    from test_disktest import DRIVE_ROWS, hdd_ps
+
+    ps = hdd_ps()
+    ps.responses = {"Get-PhysicalDisk | ForEach-Object": DRIVE_ROWS, **ps.responses}
+    return ps
+
+
+def test_disk_test_page_lists_drives_and_runs_health_test(window):
+    from extract.disktest import DiskTestMode
+    from extract.gui.main_window import DISK_TEST
+
+    page = window.disk_test
+    page.ps_factory = _disk_page_ps
+    window.show_page(DISK_TEST)  # first show lists the drives in a worker thread
+    assert wait_until(lambda: page.drive_combo.count() == 2 and not page.is_running)
+    assert page.drive_combo.itemText(0).startswith("Disco 0: Samsung")
+    page.drive_combo.setCurrentIndex(1)
+    assert page.volume_combo.currentData() == "D:"
+    page.mode_combo.setCurrentIndex(page.mode_combo.findData(DiskTestMode.HEALTH))
+    assert page.volume_combo.isHidden()
+    page.start_test()
+    assert wait_until(lambda: page.report is not None and not page.is_running)
+    assert page.report.drive.number == 1
+    assert page.report.mode == DiskTestMode.HEALTH
+    assert page.start_button.isEnabled()
+
+
+def test_disk_test_page_saves_pdf_outside_client_folders(window, portable_dirs, monkeypatch):
+    from extract.gui import demo
+    from extract.gui.pages import disk_test
+    from extract.gui.pages.reports import client_folders
+
+    monkeypatch.setattr(disk_test.QDesktopServices, "openUrl", lambda url: True)
+    demo.load_disk_demo(window)
+    pdf = window.disk_test.save_report()
+    assert pdf is not None and pdf.read_bytes().startswith(b"%PDF")
+    assert pdf.parent.name == "teste-de-disco"
+    assert pdf.parent not in client_folders(pdf.parent.parent)
+
+
+def test_disk_test_page_reports_listing_failure(window):
+    from extract.core.powershell import FakePowerShell, PowerShellError
+    from extract.gui.main_window import DISK_TEST
+
+    page = window.disk_test
+    page.ps_factory = lambda: FakePowerShell({"Get-PhysicalDisk": PowerShellError("sem acesso")})
+    window.show_page(DISK_TEST)
+    assert wait_until(lambda: "Não foi possível listar" in page.message.text())
+    assert not page.start_button.isEnabled()

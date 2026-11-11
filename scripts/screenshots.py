@@ -18,7 +18,13 @@ sys.path.insert(0, str(ROOT / "src"))
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from extract.gui import demo, theme  # noqa: E402
-from extract.gui.main_window import DIAGNOSTIC, REPORTS, RESULTS, MainWindow  # noqa: E402
+from extract.gui.main_window import (  # noqa: E402
+    DIAGNOSTIC,
+    DISK_TEST,
+    REPORTS,
+    RESULTS,
+    MainWindow,
+)
 
 OUTPUT = ROOT / "docs" / "images"
 SIZE = (1280, 800)
@@ -51,6 +57,8 @@ def main() -> int:
     capture(window, "desempenho")
     window.show_page(REPORTS)
     capture(window, "relatorios")
+    window.show_page(DISK_TEST)
+    capture(window, "teste-de-disco")
 
     theme.manager().apply("light", remember=False)
     window.show_page(RESULTS)

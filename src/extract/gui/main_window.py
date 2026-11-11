@@ -1,4 +1,4 @@
-"""Main window: sidebar navigation over the four pages."""
+"""Main window: sidebar navigation over the five pages."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ from extract.gui import theme
 from extract.gui.icons import app_icon
 from extract.gui.pages.about import AboutPage
 from extract.gui.pages.diagnostic import DiagnosticPage
+from extract.gui.pages.disk_test import DiskTestPage
 from extract.gui.pages.reports import ReportsPage
 from extract.gui.pages.results import ResultsPage
 from extract.gui.widgets.common import hbox
@@ -22,10 +23,11 @@ from extract.gui.widgets.sidebar import Sidebar
 PAGES = (
     ("Diagnóstico", "activity"),
     ("Resultados", "clipboard-check"),
+    ("Teste de disco", "disk"),
     ("Relatórios", "files"),
     ("Sobre", "info"),
 )
-DIAGNOSTIC, RESULTS, REPORTS, ABOUT = range(len(PAGES))
+DIAGNOSTIC, RESULTS, DISK_TEST, REPORTS, ABOUT = range(len(PAGES))
 DEFAULT_SIZE = (1280, 800)
 MINIMUM_SIZE = (1080, 700)
 
@@ -46,9 +48,10 @@ class MainWindow(QMainWindow):
         self.stack.setObjectName("Pages")
         self.diagnostic = DiagnosticPage(self.log_handler)
         self.results = ResultsPage()
+        self.disk_test = DiskTestPage()
         self.reports = ReportsPage()
         self.about = AboutPage()
-        for page in (self.diagnostic, self.results, self.reports, self.about):
+        for page in (self.diagnostic, self.results, self.disk_test, self.reports, self.about):
             self.stack.addWidget(page)
 
         root = QWidget()
@@ -81,6 +84,17 @@ class MainWindow(QMainWindow):
         self.open_report(report, path)
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        if self.disk_test.is_running:
+            answer = QMessageBox.question(
+                self,
+                "Teste de disco em andamento",
+                "Um teste de disco está em andamento. Deseja cancelar e sair?",
+            )
+            if answer != QMessageBox.StandardButton.Yes:
+                event.ignore()
+                return
+            self.disk_test.cancel()
+        self.disk_test.wait()
         if self.diagnostic.is_running:
             answer = QMessageBox.question(
                 self,

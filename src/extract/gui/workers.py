@@ -77,7 +77,7 @@ class ScanWorker(QObject):
         self.progress.emit(fraction, message)
 
 
-def start_in_thread(worker: ScanWorker) -> QThread:
+def start_in_thread(worker: ScanWorker | TaskWorker) -> QThread:
     """Move `worker` to a new thread and start it; the thread quits when the worker ends.
 
     The caller keeps both objects referenced until the thread has finished.
@@ -89,3 +89,33 @@ def start_in_thread(worker: ScanWorker) -> QThread:
         signal.connect(thread.quit)
     thread.start()
     return thread
+
+
+class TaskWorker(QObject):
+    """Runs any `task(progress, cancel)` off the UI thread (disk test, drive listing)."""
+
+    progress = Signal(float, str)
+    finished = Signal(object)
+    failed = Signal(str)
+    cancelled = Signal()
+
+    def __init__(self, task: Callable[[Callable[[float, str], None], CancelToken], object]):
+        super().__init__()
+        self._task = task
+        self._token = CancelToken()
+
+    def cancel(self) -> None:
+        self._token.cancel()
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            result = self._task(self.progress.emit, self._token)
+            self._token.raise_if_cancelled()
+        except Cancelled:
+            self.cancelled.emit()
+        except Exception as exc:
+            log.exception("Task failed")
+            self.failed.emit(str(exc) or exc.__class__.__name__)
+        else:
+            self.finished.emit(result)
